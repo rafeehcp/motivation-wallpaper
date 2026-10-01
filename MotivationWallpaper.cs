@@ -18,7 +18,21 @@ namespace Motivation {
  public class Monitor {public string Id;public int Width,Height;}
  public sealed class Desktop:IDisposable {
   IDesktopWallpaper api=(IDesktopWallpaper)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("C2CF3110-460E-4FC1-B9D0-8A1C0C9CC4BD")));
-  public Monitor[] Monitors(){var result=new List<Monitor>();for(uint i=0;i<api.GetMonitorDevicePathCount();i++){string id=api.GetMonitorDevicePathAt(i);Rect r;api.GetMonitorRECT(id,out r);if(r.Right>r.Left&&r.Bottom>r.Top)result.Add(new Monitor{Id=id,Width=r.Right-r.Left,Height=r.Bottom-r.Top});}return result.ToArray();}
+  public Monitor[] Monitors(){
+   var result=new List<Monitor>();uint count=api.GetMonitorDevicePathCount();
+   for(uint i=0;i<count;i++){
+    string id=api.GetMonitorDevicePathAt(i);Rect r;
+    try{api.GetMonitorRECT(id,out r);}
+    catch(COMException error){
+     // Windows can retain an unavailable legacy monitor after switching users.
+     // Its rectangle query returns E_FAIL; keep enumerating the working screens.
+     if(error.ErrorCode==unchecked((int)0x80004005))continue;
+     throw;
+    }
+    if(r.Right>r.Left&&r.Bottom>r.Top)result.Add(new Monitor{Id=id,Width=r.Right-r.Left,Height=r.Bottom-r.Top});
+   }
+   return result.ToArray();
+  }
   public string Get(string id){return api.GetWallpaper(id);}public void Set(string id,string path){api.SetWallpaper(id,path);}
   public int Position(){return api.GetPosition();}public void SetPosition(int position){api.SetPosition(position);}
   public void Dispose(){if(api!=null){Marshal.ReleaseComObject(api);api=null;}}

@@ -1,4 +1,4 @@
-﻿# v0.1.0 release validation
+# Release validation
 
 The public release supports Wikimedia Commons CC0 photos and original generated backgrounds. No other stock-photo API integration is included.
 
@@ -17,8 +17,24 @@ The public release supports Wikimedia Commons CC0 photos and original generated 
 
 ## Remaining validation
 
-Fresh-user credential dialogs and actual Task Scheduler registration are not covered by the isolated installer tests. Hosted Windows CI results are available on the repository's Actions page after publication. Sign-in catch-up and rollback on a partial real wallpaper-application failure require further interactive testing.
+Rollback on a partial real wallpaper-application failure still requires further interactive testing. The stale-monitor regression depends on affected Windows desktop state and is not reproduced by hosted CI.
+
+## v0.1.1 fresh-profile validation (2026-10-01)
+
+Testing started with the published v0.1.0 archive under Windows PowerShell 5.1 in a separate standard Windows account. It exposed an unavailable legacy monitor returning `E_FAIL` during rectangle enumeration. The monitor fix was applied to that isolated installation and the remaining walkthrough completed successfully.
+
+- Cancelled and empty API-key entry leave no installation; valid entry installs successfully without elevation.
+- The task belongs to the test user, runs with limited privileges, and has daily 09:00 and sign-in triggers.
+- Offline and live previews complete without changing wallpapers.
+- Two actual desktop-launcher runs use different quotes and backgrounds; all three screens pass visual readability checks, and the launcher closes on success.
+- Restore returns to the previous wallpapers and fit.
+- Actual scheduled execution succeeds; a second automatic run on the same day preserves history.
+- Repeated setup retains a single task; actual sign-out and sign-in execute the catch-up update.
+- Original wallpapers are restored before uninstall; uninstall removes managed files, launcher, and task while retaining data and the key.
+- All four offline suites pass after the monitor fix; the affected desktop also passes a three-screen offline preview without changing wallpaper paths or fit.
+
+Sanitized findings are recorded here; private profile paths, credentials, and raw test reports are not included in the repository.
 
 ## Release procedure
 
-Publish only the reviewed Commons/generated source snapshot. Keep earlier development history and private correspondence local. Run Windows CI before tagging v0.1.0, then publish a source-only release using GitHub's generated archives.
+Publish only the reviewed Commons/generated source snapshot. Keep earlier development history and private correspondence local. Run Windows CI before tagging a release, then publish a source-only release using GitHub's generated archives.
