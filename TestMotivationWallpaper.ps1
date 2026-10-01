@@ -1,4 +1,4 @@
-param([switch]$DesktopIntegration)
+﻿param([switch]$DesktopIntegration)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'SetMotivationWallpaper.ps1')
 $testFolder=Join-Path $env:TEMP ('WallpaperTests-'+[guid]::NewGuid().ToString('N'))
@@ -47,7 +47,7 @@ if($DesktopIntegration){
  $desktop=New-Object Motivation.Desktop
  try {
   $before=@($desktop.Monitors()|ForEach-Object{$desktop.Get($_.Id)})|ConvertTo-Json -Compress
-  $Automatic=$false;$Demo=$false;$PreviewOnly=$false
+  $Automatic=$false;$Demo=$false;$PreviewOnly=$false;$QuoteScreening='Jev'
   Save-Json $historyFile @{entries=@();sequence=0;lastAutomaticDate=''}
   $originalKey=${function:Get-Key};$originalCandidates=${function:Get-Candidates};$originalAssessment=${function:Get-Assessment};$originalBatch=${function:Get-AssessmentBatch}
   try{

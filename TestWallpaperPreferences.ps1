@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 Set-StrictMode -Version 2
 . (Join-Path $PSScriptRoot 'WallpaperPreferences.ps1')
 $testRoot=Join-Path $env:TEMP ('WallpaperPreferencesTests-'+[guid]::NewGuid().ToString('N'))
@@ -6,6 +6,13 @@ New-Item -ItemType Directory -Path $testRoot|Out-Null
 function Assert($Condition,$Message){if(!$Condition){throw "FAIL: $Message"};Write-Output "PASS: $Message"}
 try {
  $path=Join-Path $testRoot 'settings.json'
+ Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Basic') 'Missing screening defaults to Basic'
+ Set-WallpaperQuoteScreening $testRoot 'Jev'
+ Set-WallpaperShowCredits $testRoot $false
+ Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Jev' -and !(Get-WallpaperShowCredits $testRoot)) 'Credit changes preserve screening mode'
+ Set-WallpaperQuoteScreening $testRoot 'Basic'
+ Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Basic' -and !(Get-WallpaperShowCredits $testRoot)) 'Screening changes preserve credit preference'
+ Remove-Item -LiteralPath $path
  Assert (Get-WallpaperShowCredits $testRoot) 'Missing settings show source credits by default'
  Set-WallpaperShowCredits $testRoot $false
  Assert (!(Get-WallpaperShowCredits $testRoot)) 'Hidden credit preference persists as a Boolean'
@@ -18,6 +25,7 @@ try {
  Assert (Test-Path -LiteralPath "$path.previous") 'Atomic updates retain the previous settings file'
  foreach($invalid in @('{"showCredits":"false"}','[]','null','{broken')) {
   [IO.File]::WriteAllText($path,$invalid)
+  Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Basic') 'Invalid settings default to Basic screening'
   Assert (Get-WallpaperShowCredits $testRoot) 'Invalid or absent Boolean preference keeps source credits visible'
  }
  $before=[IO.File]::ReadAllText($path);$rejected=$false
@@ -32,6 +40,8 @@ try {
  Assert (!(Get-WallpaperShowCredits $testRoot)) 'Command-line hide option saves the preference without a dialog'
  $HideCredits=$false;$ShowCredits=$true;Configure-MotivationWallpaper|Out-Null
  Assert (Get-WallpaperShowCredits $testRoot) 'Command-line show option restores visible credits'
+ $ShowCredits=$false;$QuoteScreening='Jev';Configure-MotivationWallpaper|Out-Null
+ Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Jev' -and (Get-WallpaperShowCredits $testRoot)) 'CLI screening choice preserves credits without a dialog'
 }finally {
  $resolved=[IO.Path]::GetFullPath($testRoot)
  $temporaryRoot=[IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')+'\'

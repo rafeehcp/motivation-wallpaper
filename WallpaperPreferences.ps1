@@ -1,4 +1,4 @@
-function Get-WallpaperShowCredits([string]$Folder) {
+﻿function Get-WallpaperShowCredits([string]$Folder) {
  $path=Join-Path $Folder 'settings.json'
  if(!(Test-Path -LiteralPath $path)){return $true}
  try {
@@ -10,7 +10,7 @@ function Get-WallpaperShowCredits([string]$Folder) {
  }catch{return $true}
 }
 
-function Set-WallpaperShowCredits([string]$Folder,[bool]$ShowCredits) {
+function Set-WallpaperPreferences([string]$Folder,[hashtable]$Updates) {
  New-Item -ItemType Directory -Path $Folder -Force -ErrorAction Stop|Out-Null
  $path=Join-Path $Folder 'settings.json'
  $lock=$null;$temporary=$null
@@ -24,7 +24,7 @@ function Set-WallpaperShowCredits([string]$Folder,[bool]$ShowCredits) {
     foreach($property in $existing.PSObject.Properties){$settings[$property.Name]=$property.Value}
    }catch{throw "Cannot update settings.json because it is not a valid JSON object. Repair or rename it first; the existing file has been preserved."}
   }
-  $settings['showCredits']=$ShowCredits
+  foreach($name in $Updates.Keys){$settings[$name]=$Updates[$name]}
   if(Get-Command Save-Json -CommandType Function -ErrorAction SilentlyContinue){Save-Json $path $settings}
   else {
    $temporary=Join-Path $Folder ('settings.'+[guid]::NewGuid().ToString('N')+'.tmp')
@@ -36,4 +36,22 @@ function Set-WallpaperShowCredits([string]$Folder,[bool]$ShowCredits) {
   if($null -ne $lock){$lock.Dispose()}
   if($temporary -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary -Force}
  }
+}
+
+function Get-WallpaperQuoteScreening([string]$Folder) {
+ $path=Join-Path $Folder 'settings.json'
+ if(!(Test-Path -LiteralPath $path)){return 'Basic'}
+ try {
+  $settings=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -ErrorAction Stop
+  if($settings -isnot [pscustomobject]){return 'Basic'}
+  $property=$settings.PSObject.Properties['quoteScreening']
+  if($null -ne $property -and $property.Value -is [string] -and $property.Value -in @('Basic','Jev')){return [string]$property.Value}
+ }catch{}
+ return 'Basic'
+}
+function Set-WallpaperShowCredits([string]$Folder,[bool]$ShowCredits) {
+ Set-WallpaperPreferences $Folder @{showCredits=$ShowCredits}
+}
+function Set-WallpaperQuoteScreening([string]$Folder,[ValidateSet('Basic','Jev')][string]$QuoteScreening) {
+ Set-WallpaperPreferences $Folder @{quoteScreening=$QuoteScreening}
 }

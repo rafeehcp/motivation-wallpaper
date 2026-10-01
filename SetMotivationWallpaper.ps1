@@ -1,5 +1,5 @@
-[CmdletBinding()]
-param([switch]$PreviewOnly,[switch]$Automatic,[switch]$Demo,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers",[ValidateSet('Commons','Generated')][string]$BackgroundSource='Commons')
+﻿[CmdletBinding()]
+param([switch]$PreviewOnly,[switch]$Automatic,[switch]$Demo,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers",[ValidateSet('Commons','Generated')][string]$BackgroundSource='Commons',[ValidateSet('Basic','Jev')][string]$QuoteScreening)
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version 2
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
@@ -14,7 +14,7 @@ function Get-QuoteId([string]$Text) {
 function Get-Key($Name) {
  $key=[Environment]::GetEnvironmentVariable($Name,'User')
  if(!$key){$key=[Environment]::GetEnvironmentVariable($Name,'Process')}
- if(!$key){throw "Missing $Name. Run SetupMotivationWallpaper.ps1."};return $key
+ if(!$key){throw "Missing $Name. Run SetupMotivationWallpaper.ps1 -CredentialsOnly."};return $key
 }
 function Invoke-Service($Uri,$Headers=@{},$Body=$null,$OutFile='',[int]$TimeoutSeconds=30,[int]$Attempts=3) {
  for($attempt=0;$attempt -lt $Attempts;$attempt++) {
@@ -90,6 +90,31 @@ function Get-AssessmentBatch($Quotes,$Theme,$Key,$Cache,$Folder) {
 function Get-Assessment($Quote,$Theme,$Key) {
  return Invoke-Service 'https://api.typesafe.ai/v1/systemone' @{Authorization="Bearer $Key"} @{model='jev-1.13.0';state=@{quote=$Quote.q;theme=$Theme};questions=(Get-Questions $Theme)}
 }
+function Test-BasicQuote($Quote) {
+ try {
+  if($null -eq $Quote -or !$Quote.PSObject.Properties['q'] -or !$Quote.PSObject.Properties['a']){return $false}
+  if($Quote.q -isnot [string] -or $Quote.a -isnot [string]){return $false}
+  $text=$Quote.q.Trim();$author=$Quote.a.Trim()
+  if($text.Length -lt 15 -or $text.Length -gt 230 -or $author.Length -lt 1 -or $author.Length -gt 70){return $false}
+  if($text -match '[\p{Cc}\p{Cf}<>]' -or $author -match '[\p{Cc}\p{Cf}<>]' -or $text -notmatch '[\p{L}]'){return $false}
+  if($text -match '(?i)https?://|www\.'){return $false}
+  return $true
+ }catch{return $false}
+}
+function Get-BasicQuote($Folder,$Theme,$RecentIds) {
+ $keywords=if($Theme -like 'Bold*'){'\b(goal|dream|achiev|success|effort|ambiti|courage|work|champion|win|determination)'}elseif($Theme -like 'Calm*'){'\b(patience|peace|purpose|balance|quiet|present|accept|wisdom|mind|happiness)'}else{'\b(step|progress|practice|habit|discipline|learn|persist|resilien|work|begin|improve)'}
+ foreach($supplemental in @($false,$true)) {
+  $seen=@{}
+  $candidates=@(foreach($candidate in (Get-Candidates $Folder -Supplemental:$supplemental)) {
+   if(!(Test-BasicQuote $candidate)){continue}
+   $id=Get-QuoteId $candidate.q
+   if($id -in $RecentIds -or $seen.ContainsKey($id)){continue}
+   $seen[$id]=$true;$candidate
+  })
+  if($candidates.Count){return ($candidates|Sort-Object @{Expression={[regex]::Matches($_.q,$keywords,'IgnoreCase').Count};Descending=$true},@{Expression={Get-Random}}|Select-Object -First 1)}
+ }
+ throw 'No unused quote passed basic checks. Wallpaper preserved.'
+}
 function Get-Candidates($Folder,[switch]$Supplemental) {
  if($Supplemental){
   $path=Join-Path $Folder 'supplemental-quotes.json'
@@ -145,33 +170,40 @@ function Invoke-Wallpaper {
     $quote=@{q='Small steps, taken consistently, can carry you a long way.';a='Layout demonstration'};$assessment=$null
     $background=Get-GeneratedBackground $DataDirectory $theme ($monitors|Measure-Object Width -Maximum).Maximum ($monitors|Measure-Object Height -Maximum).Maximum
    }else{
-    $jev=Get-Key 'TYPESAFE_API_KEY';$quote=$null;$assessment=$null
-    $ids=@($recent|ForEach-Object{$_.quoteId})
-    $cache=Read-Assessments $DataDirectory
-    foreach($themeOffset in 0..2){
-    $theme=$themes[([int]$history.sequence+$themeOffset)%3];$seen=@{}
-    if($themeOffset -gt 0 -and !$Automatic){Write-Host 'Trying another of your selected themes...'}
-    $ready=@($cache.Values|Where-Object{$_.theme -eq $theme -and (Get-QuoteId $_.quote.q) -notin $ids -and (Test-Assessment $_.assessment)})
-    if($ready.Count){$chosen=$ready|Get-Random;$quote=$chosen.quote;$assessment=$chosen.assessment;if(!$Automatic){Write-Host 'Using a previously approved, unused quote.'}}
-    foreach($supplemental in @($false,$true)){
-     if($quote){break}
-     if(!$Automatic){Write-Host $(if($supplemental){'Searching additional online quotes...'}else{'Checking quotes with Jev...'})}
-     $keywords=if($theme -like 'Bold*'){'\b(goal|dream|achiev|success|effort|ambiti|courage|work|champion|win|determination)'}elseif($theme -like 'Calm*'){'\b(patience|peace|purpose|balance|quiet|present|accept|wisdom|mind|happiness)'}else{'\b(step|progress|practice|habit|discipline|learn|persist|resilien|work|begin|improve)'}
-     # Cached rejections need no more API work. Theme words only order candidates;
-     # Jev still makes every acceptance decision using the unchanged rubric.
-     $candidates=@(Get-Candidates $DataDirectory -Supplemental:$supplemental|Where-Object{(Get-QuoteId $_.q) -notin $ids -and !$cache.ContainsKey((Get-QuoteId ($theme+'|'+$_.q)))}|Sort-Object @{Expression={[regex]::Matches($_.q,$keywords,'IgnoreCase').Count};Descending=$true},@{Expression={Get-Random}}|Select-Object -First 150)
-     $unique=@(foreach($candidate in $candidates){$id=Get-QuoteId $candidate.q;if(!$seen.ContainsKey($id)){$seen[$id]=$true;$candidate}})
-     for($offset=0;$offset -lt $unique.Count;$offset+=10){
-      $batch=@($unique|Select-Object -Skip $offset -First 10)
-      $evaluations=Get-AssessmentBatch $batch $theme $jev $cache $DataDirectory
-      foreach($candidate in $batch){$evaluation=$evaluations[(Get-QuoteId $candidate.q)];if(Test-Assessment $evaluation){$quote=$candidate;$assessment=$evaluation;break}}
+    $screening=if($QuoteScreening){$QuoteScreening}else{Get-WallpaperQuoteScreening $DataDirectory}
+    $quote=$null;$assessment=$null
+    if($screening -eq 'Basic'){
+     $quote=Get-BasicQuote $DataDirectory $theme @($recent|ForEach-Object{$_.quoteId})
+     if(!$Automatic){Write-Host 'Using basic quote checks.'}
+    }else{
+     $jev=Get-Key 'TYPESAFE_API_KEY'
+     $ids=@($recent|ForEach-Object{$_.quoteId})
+     $cache=Read-Assessments $DataDirectory
+     foreach($themeOffset in 0..2){
+     $theme=$themes[([int]$history.sequence+$themeOffset)%3];$seen=@{}
+     if($themeOffset -gt 0 -and !$Automatic){Write-Host 'Trying another of your selected themes...'}
+     $ready=@($cache.Values|Where-Object{$_.theme -eq $theme -and (Get-QuoteId $_.quote.q) -notin $ids -and (Test-Assessment $_.assessment)})
+     if($ready.Count){$chosen=$ready|Get-Random;$quote=$chosen.quote;$assessment=$chosen.assessment;if(!$Automatic){Write-Host 'Using a previously approved, unused quote.'}}
+     foreach($supplemental in @($false,$true)){
+      if($quote){break}
+      if(!$Automatic){Write-Host $(if($supplemental){'Searching additional online quotes...'}else{'Checking quotes with Jev...'})}
+      $keywords=if($theme -like 'Bold*'){'\b(goal|dream|achiev|success|effort|ambiti|courage|work|champion|win|determination)'}elseif($theme -like 'Calm*'){'\b(patience|peace|purpose|balance|quiet|present|accept|wisdom|mind|happiness)'}else{'\b(step|progress|practice|habit|discipline|learn|persist|resilien|work|begin|improve)'}
+      # Cached rejections need no more API work. Theme words only order candidates;
+      # Jev still makes every acceptance decision using the unchanged rubric.
+      $candidates=@(Get-Candidates $DataDirectory -Supplemental:$supplemental|Where-Object{(Get-QuoteId $_.q) -notin $ids -and !$cache.ContainsKey((Get-QuoteId ($theme+'|'+$_.q)))}|Sort-Object @{Expression={[regex]::Matches($_.q,$keywords,'IgnoreCase').Count};Descending=$true},@{Expression={Get-Random}}|Select-Object -First 150)
+      $unique=@(foreach($candidate in $candidates){$id=Get-QuoteId $candidate.q;if(!$seen.ContainsKey($id)){$seen[$id]=$true;$candidate}})
+      for($offset=0;$offset -lt $unique.Count;$offset+=10){
+       $batch=@($unique|Select-Object -Skip $offset -First 10)
+       $evaluations=Get-AssessmentBatch $batch $theme $jev $cache $DataDirectory
+       foreach($candidate in $batch){$evaluation=$evaluations[(Get-QuoteId $candidate.q)];if(Test-Assessment $evaluation){$quote=$candidate;$assessment=$evaluation;break}}
+       if($quote){break}
+      }
       if($quote){break}
      }
-     if($quote){break}
+     if($quote){$themeAdvance=$themeOffset+1;break}
+     }
+     if(!$quote){throw 'No quote passed quality checks. Wallpaper preserved.'}
     }
-    if($quote){$themeAdvance=$themeOffset+1;break}
-    }
-    if(!$quote){throw 'No quote passed quality checks. Wallpaper preserved.'}
     $background=Get-Background $DataDirectory @($recent|ForEach-Object{$_.photoId}) ($monitors|Measure-Object Width -Maximum).Maximum ($monitors|Measure-Object Height -Maximum).Maximum $theme
    }
    $runFolder=Join-Path $DataDirectory ((Get-Date -Format 'yyyyMMdd_HHmmss_fff')+$(if($PreviewOnly){'_preview'}else{'_wallpaper'}));New-Item -ItemType Directory $runFolder|Out-Null
@@ -184,7 +216,7 @@ function Invoke-Wallpaper {
     $size=[Motivation.Renderer]::Render($background.path,$path,$monitor.Width,$monitor.Height,[string]$quote.q,[string]$quote.a,$credit,$theme)
     $outputs+=@{monitor=$monitor.Id;path=$path;width=$monitor.Width;height=$monitor.Height;fontPixels=$size};$index++
    }
-   Save-Json (Join-Path $runFolder 'details.json') @{quote=$quote;theme=$theme;font=[Motivation.Renderer]::FontForTheme($theme);assessment=$assessment;background=$background;outputs=$outputs;demo=[bool]$Demo}
+   Save-Json (Join-Path $runFolder 'details.json') @{quote=$quote;theme=$theme;font=[Motivation.Renderer]::FontForTheme($theme);assessment=$assessment;quoteScreening=$(if($Demo){'Demo'}else{$screening});background=$background;outputs=$outputs;demo=[bool]$Demo}
    $html='<!doctype html><meta charset="utf-8"><title>Wallpaper preview</title><style>body{background:#111;color:#eee;font:18px Segoe UI;padding:30px}img{max-width:90%;max-height:85vh;display:block;margin:25px 0}a{color:#9dd}</style><h1>Wallpaper preview</h1><p>'+[Net.WebUtility]::HtmlEncode($quote.q)+'</p><p>Inspirational quotes provided by <a href="https://zenquotes.io/">ZenQuotes API</a>.</p>'+(Get-BackgroundHtml $background)
    for($i=0;$i -lt $outputs.Count;$i++){$html+="<h2>Monitor $($i+1): $($outputs[$i].width) x $($outputs[$i].height)</h2><img src=`"monitor_$i.png`" alt=`"Wallpaper preview`">"}
    if($source -eq 'dummyjson.com'){$html=$html.Replace('https://zenquotes.io/','https://dummyjson.com/docs/quotes').Replace('ZenQuotes API','DummyJSON quote collection')}

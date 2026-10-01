@@ -1,6 +1,6 @@
-# Motivation Wallpaper
+﻿# Motivation Wallpaper
 
-Readable motivational quotes on your Windows desktop, screened by Jev and rendered for each monitor. Themes rotate between practical, ambitious, and reflective, each with its own typography. The last 30 quotes and background photos are excluded from successful updates. Backgrounds use a reviewed Commons photo collection with original generated artwork as a fallback.
+Readable motivational quotes on your Windows desktop, checked locally by default, optionally screened by Jev, and rendered for each monitor. Themes rotate between practical, ambitious, and reflective, each with its own typography. The last 30 quotes and background photos are excluded from successful updates. Backgrounds use a reviewed Commons photo collection with original generated artwork as a fallback.
 
 An MIT-licensed PowerShell tool for Windows 10/11. The code license does not license third-party photos or quotes; the photo collection is restricted to reviewed CC0 images.
 
@@ -8,22 +8,38 @@ An MIT-licensed PowerShell tool for Windows 10/11. The code license does not lic
 
 - Windows 10 or 11 with an interactive desktop session.
 - Windows PowerShell 5.1 (`powershell.exe`). PowerShell 7 is not currently supported or tested.
-- Internet access and your own [TypeSafe/Jev](https://typesafe.ai/) key for live quote screening. Commons and generated backgrounds need no image API key. Provider quotas, pricing, and terms apply.
+- Internet access for new online quotes and photos. A [TypeSafe/Jev](https://typesafe.ai/) key is required only if you enable Jev screening. Commons and generated backgrounds need no image API key. Provider quotas, pricing, and terms apply.
 - No Python, external editor, or additional PowerShell modules.
 
 ## Install
 
-Download the source ZIP from [Releases](https://github.com/rafeehcp/motivation-wallpaper/releases), extract it, and open Windows PowerShell in the extracted folder:
+Open **Windows PowerShell** as your normal user and paste this command:
+
+```powershell
+irm https://github.com/rafeehcp/motivation-wallpaper/releases/latest/download/Install.ps1 | iex
+```
+
+It downloads the installer from the latest published release, verifies that release's ZIP against its embedded SHA-256 checksum, and runs setup. No administrator access or API key is required for the default Basic mode. Review [the installer source](https://github.com/rafeehcp/motivation-wallpaper/blob/main/Install.ps1) before running it if you prefer. The temporary download is removed after setup; existing unmanaged installations are preserved and rejected by setup.
+
+For manual-only installation, use:
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/rafeehcp/motivation-wallpaper/releases/latest/download/Install.ps1))) -NoSchedule
+```
+
+The downloaded installer also accepts `-InstallDirectory`, `-BackgroundSource Commons|Generated`, and `-QuoteScreening Basic|Jev`. Selecting Jev requests a missing key. Without a screening option, existing preferences are preserved and new installations use Basic.
+
+Alternatively, download the ZIP from [Releases](https://github.com/rafeehcp/motivation-wallpaper/releases), extract it, and open Windows PowerShell in the extracted folder:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SetupMotivationWallpaper.ps1
 ```
 
-Setup requests a missing `TYPESAFE_API_KEY` through a masked dialog. It is saved in your Windows user environment; this is **not an encrypted credential vault**. An existing user key is reused. Do not put keys in issues, screenshots, logs, or source files.
+Basic mode is the default and setup does not request an API key. With `-QuoteScreening Jev`, setup requests a missing `TYPESAFE_API_KEY` through a masked dialog. It is saved in your Windows user environment; this is **not an encrypted credential vault**. An existing user key is reused. Do not put keys in issues, screenshots, logs, or source files.
 
 Setup installs into `%LOCALAPPDATA%\MotivationWallpaper`, creates **Change Wallpaper.cmd** on your desktop, and registers a task for 09:00 local time plus sign-in catch-up. Automatic runs update once per calendar day; manual changes can run any time. Setup does not change your current wallpaper.
 
-Use `-NoSchedule` for manual-only installation. On repeated setup, this option retains any existing managed schedule. Use `-CredentialsOnly` to configure missing keys without installing files. `-InstallDirectory` selects another directory, but only one managed desktop launcher and scheduled task are supported per user.
+Use `-QuoteScreening Basic` or `-QuoteScreening Jev` to choose and save a mode during setup. Without that option, setup preserves the saved selection, defaulting to Basic. Use `-NoSchedule` for manual-only installation. On repeated setup, this option retains any existing managed schedule. Use `-CredentialsOnly` to configure missing keys without installing files. `-InstallDirectory` selects another directory, but only one managed desktop launcher and scheduled task are supported per user.
 
 Setup accepts `-BackgroundSource Commons` (default) or `Generated`; it writes this choice into the desktop launcher and scheduled task. Direct main-script runs use Commons unless you pass the option explicitly. With `-NoSchedule`, any existing task keeps its previous source choice.
 
@@ -38,8 +54,8 @@ $app = Join-Path $env:LOCALAPPDATA 'MotivationWallpaper'
 & "$app\SetMotivationWallpaper.ps1"                       # Change wallpaper
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly          # Live preview, uses APIs
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly -Demo    # Offline layout preview
-& "$app\SetMotivationWallpaper.ps1" -BackgroundSource Generated # Live screened quote, offline background
-& "$app\ConfigureMotivationWallpaper.ps1"                # Show/hide source credits
+& "$app\SetMotivationWallpaper.ps1" -BackgroundSource Generated # Live quote, offline background
+& "$app\ConfigureMotivationWallpaper.ps1"                # Configure credits and screening
 & "$app\RestoreMotivationWallpaper.ps1"                  # Restore previous wallpapers
 & "$app\UninstallMotivationWallpaper.ps1"                # Remove installation and schedule
 ```
@@ -59,13 +75,17 @@ Settings are saved in the wallpaper data folder's `settings.json`. A custom `-Da
 
 ## How it works
 
-Quotes come from ZenQuotes, with DummyJSON as an additional collection when needed. Jev scores clarity, constructive motivation, and theme fit. Every dimension requires a score of at least 3 on the API's 0-4 scale and at least 80% combined probability on its two highest levels. This is model judgment; quote accuracy and author attribution are not independently verified.
+Quotes come from ZenQuotes, with DummyJSON as an additional collection when needed. **Basic checks** are the default: quote text must be 15?230 characters, the author must be 1?70 characters, and empty text, control characters, markup, URLs in quote text, and recent repeats are rejected. Theme keywords prioritize candidates; if none match, another valid unused quote is selected. These checks do not judge meaning or verify author attribution.
 
-Quotes are evaluated in batches of ten. Approved unused quotes are reused from the assessment cache before requesting new evaluations. The model is pinned to `jev-1.13.0`; model or rubric changes must also change the assessment cache version.
+Choose **Basic checks** or **Jev screening** in Wallpaper Settings (`Change Wallpaper.cmd settings`). You can also save a choice with `ConfigureMotivationWallpaper.ps1 -QuoteScreening Basic` or `-QuoteScreening Jev`. The main script accepts the same option as a one-run override; manual and scheduled runs otherwise use the saved setting. Changes apply to future wallpapers. Jev keys can be configured later using setup `-CredentialsOnly`.
+
+In Jev mode, Jev scores clarity, constructive motivation, and theme fit. Every dimension requires a score of at least 3 on the API's 0-4 scale and at least 80% combined probability on its two highest levels. This is model judgment; quote accuracy and author attribution are not independently verified.
+
+In Jev mode, quotes are evaluated in batches of ten. Approved unused quotes are reused from the assessment cache before requesting new evaluations. The model is pinned to `jev-1.13.0`; model or rubric changes must also change the assessment cache version.
 
 Commons backgrounds come from 37 manually reviewed CC0 nature photos. Runtime metadata must still identify the image as CC0 and provide its CC0 deed URL; other licenses and unreviewed files are excluded. Metadata is cached for 24 hours, and downloads are sized to support connected screens. Source and license links appear in previews, with photographer credits on the rendered wallpaper. Review records are in [commons-backgrounds.json](commons-backgrounds.json).
 
-The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. `-BackgroundSource Generated` bypasses Commons entirely; live quote screening still uses Jev.
+The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. `-BackgroundSource Generated` bypasses Commons entirely; Jev is used only when Jev screening is selected.
 
 The same quote and background appear on every monitor, cropped and typeset at each monitor's native resolution. Segoe UI, Bahnschrift, and Georgia are selected by theme with a Segoe UI fallback. Dark overlays, minimum font sizes, and left-side icon space support readability.
 
@@ -79,7 +99,7 @@ Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file
 
 ## Troubleshooting
 
-- **Missing key:** run setup with `-CredentialsOnly`. To replace a saved key, remove that user environment variable in Windows settings, then rerun setup.
+- **Missing key in Jev mode:** run setup with `-CredentialsOnly`. To replace a saved key, remove that user environment variable in Windows settings, then rerun setup.
 - **No quote passed quality checks:** the wallpaper is preserved. Check the log; try later when quote caches refresh. Do not lower the quality threshold to hide a provider failure.
 - **Slow update:** first runs may need several evaluation batches. Subsequent runs use cached evaluations, but network speed and provider limits still matter.
 - **Already updated today:** automatic runs skip after a successful update. Use the desktop launcher for another manual change.
@@ -104,8 +124,12 @@ CI runs offline tests in Windows PowerShell 5.1. Interactive COM and Task Schedu
 
 ## Credits and license
 
-Inspirational quotes provided by [ZenQuotes API](https://zenquotes.io/), with additional quotes from [DummyJSON](https://dummyjson.com/docs/quotes). Photos come from [Wikimedia Commons](https://commons.wikimedia.org/). Photo credits and source/CC0 links accompany Commons previews. Evaluation uses [TypeSafe/Jev](https://typesafe.ai/).
+Inspirational quotes provided by [ZenQuotes API](https://zenquotes.io/), with additional quotes from [DummyJSON](https://dummyjson.com/docs/quotes). Photos come from [Wikimedia Commons](https://commons.wikimedia.org/). Photo credits and source/CC0 links accompany Commons previews. Optional evaluation uses [TypeSafe/Jev](https://typesafe.ai/).
 
 Code: [MIT](LICENSE), copyright 2026 rafeehcp. No third-party photos, downloaded quote collections, API credentials, or fonts are bundled.
 
 Tested locally with Windows PowerShell 5.1 and three monitors, including a fresh standard-user installation, credential dialogs, actual scheduled execution, sign-in catch-up, restore, and uninstall. Broader community validation remains welcome.
+
+Quote screening tests: `./TestQuoteScreening.ps1`; add `-DesktopIntegration` to render previews and verify failure preservation in an interactive Windows session. Basic mode makes no Jev requests. Jev failures preserve the wallpaper and never silently fall back to Basic. Missing or invalid screening preferences default to Basic.
+
+Release bootstrap tests: `./TestReleaseInstaller.ps1` covers verified ZIP extraction, option forwarding, checksum mismatch, download failure, missing setup, and setup failure without network requests or installation changes.

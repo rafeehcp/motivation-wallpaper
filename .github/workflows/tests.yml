@@ -16,3 +16,5 @@ jobs:
           ./TestInstallation.ps1
           ./TestWallpaperStorage.ps1
           ./TestWallpaperPreferences.ps1
+          ./TestQuoteScreening.ps1
+          ./TestReleaseInstaller.ps1

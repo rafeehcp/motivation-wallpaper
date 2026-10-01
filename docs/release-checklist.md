@@ -1,4 +1,4 @@
-# Release validation
+﻿# Release validation
 
 The public release supports Wikimedia Commons CC0 photos and original generated backgrounds. No other stock-photo API integration is included.
 
@@ -47,3 +47,13 @@ Sanitized findings are recorded here; private profile paths, credentials, and ra
 ## Release procedure
 
 Publish only the reviewed Commons/generated source snapshot. Keep earlier development history and private correspondence local. Run Windows CI before tagging a release, then publish a source-only release using GitHub's generated archives.
+
+
+## v0.1.3 validation
+
+- All eight offline Windows PowerShell 5.1 suites passed, including screening-mode and release-bootstrap coverage.
+- Basic preview rendered on all three active monitors with Jev credential access and evaluation mocked to fail if called. Saved Jev selection and one-run overrides were verified; desktop paths remained unchanged.
+- The personal installation rendered a Basic preview using cached real quotes and a photo without Jev access.
+- The complete release ZIP installed all 12 payload files into an isolated standard-user fixture without a key prompt or elevation. Installed file hashes matched the release sources; desktop launcher was scoped to the fixture and scheduling disabled.
+- Bootstrap rejects checksum mismatches and missing setup scripts, forwards supported options, propagates failures, and cleans its own temporary extraction.
+- The published download and latest-release command must be verified after release publication.

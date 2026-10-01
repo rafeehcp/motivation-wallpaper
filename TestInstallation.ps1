@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'SetupMotivationWallpaper.ps1')
 . (Join-Path $PSScriptRoot 'UninstallMotivationWallpaper.ps1')
 $registerImplementation=${function:Register-WallpaperTask}
@@ -7,7 +7,10 @@ $testRoot=Join-Path $env:TEMP ('MotivationInstallTests-'+[guid]::NewGuid().ToStr
 $script:testDesktop=Join-Path $testRoot 'Desktop'
 New-Item -ItemType Directory -Path $script:testDesktop -Force|Out-Null
 function Get-WallpaperDesktopPath {return $script:testDesktop}
-function Set-WallpaperCredentials {}
+$script:credentialCalls=0;$script:savedMode='Basic'
+function Set-WallpaperCredentials {$script:credentialCalls++}
+function Get-WallpaperQuoteScreening {return $script:savedMode}
+function Set-WallpaperQuoteScreening($Folder,$QuoteScreening){$script:savedMode=$QuoteScreening}
 $script:schedules=0;$script:removed=0
 function Register-WallpaperTask($ScriptPath,$Directory){$script:schedules++}
 function Remove-WallpaperTask($Name,$ScriptPath){$script:removed++}
@@ -31,7 +34,14 @@ Remove-Item -LiteralPath (Join-Path $InstallDirectory 'launcher-result.txt')
 & $env:ComSpec /d /c ('"'+$launcher+'" settings')
 Assert ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $InstallDirectory 'settings-result.txt')) -and !(Test-Path (Join-Path $InstallDirectory 'launcher-result.txt'))) 'Launcher settings argument opens configuration without changing wallpaper'
 Install-MotivationWallpaper
-Assert ($script:schedules -eq 0) 'Repeated manual-only setup succeeds'
+Assert ($script:schedules -eq 0 -and $script:credentialCalls -eq 0) 'Repeated Basic setup never requests credentials'
+$QuoteScreening='Jev';Install-MotivationWallpaper
+Assert ($script:credentialCalls -eq 1 -and $script:savedMode -eq 'Jev') 'Explicit Jev setup requests credentials and persists selection'
+Remove-Variable QuoteScreening;$QuoteScreening='';Install-MotivationWallpaper
+Assert ($script:credentialCalls -eq 2) 'Setup preserves saved Jev selection'
+$QuoteScreening='Basic';Install-MotivationWallpaper
+Assert ($script:credentialCalls -eq 2 -and $script:savedMode -eq 'Basic') 'Explicit Basic setup skips credentials and persists selection'
+Remove-Variable QuoteScreening;$QuoteScreening=''
 $NoSchedule=$false;Install-MotivationWallpaper
 Assert ($script:schedules -eq 1) 'Scheduled setup requests task registration'
 $NoSchedule=$true;Install-MotivationWallpaper

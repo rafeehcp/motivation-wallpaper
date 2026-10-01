@@ -1,3 +1,11 @@
+﻿# v0.1.3
+
+- Add a one-command Windows PowerShell installer using a version-pinned release ZIP and embedded SHA-256 verification. No administrator access is required.
+- Basic quote checks are now the default; no TypeSafe key is needed in this mode.
+- Wallpaper Settings and command-line options can enable Jev screening. Existing screening thresholds remain unchanged.
+- Setup requests a TypeSafe key only for Jev mode. Screening choices preserve source-credit settings.
+- Preview details record the screening mode. Basic selections are never labeled Jev approved.
+
 # v0.1.2
 
 - Expand the reviewed Wikimedia Commons CC0 nature catalog from 5 to 37 photos. Catalog changes refresh metadata immediately; normal runs continue using the cache.
