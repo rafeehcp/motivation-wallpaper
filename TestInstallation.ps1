@@ -12,7 +12,7 @@ $script:schedules=0;$script:removed=0
 function Register-WallpaperTask($ScriptPath,$Directory){$script:schedules++}
 function Remove-WallpaperTask($Name,$ScriptPath){$script:removed++}
 function Assert($Condition,$Message){if(!$Condition){throw "FAIL: $Message"};Write-Output "PASS: $Message"}
-$InstallDirectory=Join-Path $testRoot ('App with spaces '+[char]0x00e9);$NoSchedule=$true;$CredentialsOnly=$false
+$InstallDirectory=[IO.Path]::GetFullPath((Join-Path $testRoot ('App with spaces '+[char]0x00e9))).TrimEnd('\');$NoSchedule=$true;$CredentialsOnly=$false
 Install-MotivationWallpaper
 $launcher=Join-Path $script:testDesktop 'Change Wallpaper.cmd'
 Assert ((Test-Path $launcher) -and $script:schedules -eq 0) 'Manual-only installation creates launcher without scheduling'
