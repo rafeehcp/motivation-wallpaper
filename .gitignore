@@ -1,0 +1,25 @@
+.env
+.env.*
+*.key
+*.pem
+*.bak
+*.log
+*.tmp
+*.previous
+installation.json
+*SetupError.txt
+MotivationalWallpapers/
+history.json
+previous-wallpapers.json
+*quotes*.json
+assessments*.json
+task-backup-*.xml
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.zip
+.vs/
+.vscode/
+# Private correspondence retained locally, excluded from releases
+docs/pexels-inquiry.md

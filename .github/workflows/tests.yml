@@ -1,0 +1,16 @@
+name: Windows tests
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell 5.1 checks without API keys
+        shell: powershell
+        run: |
+          ./TestMotivationWallpaper.ps1
+          ./TestWallpaperBatch.ps1
+          ./TestBackgroundProviders.ps1
+          ./TestInstallation.ps1
