@@ -13,7 +13,7 @@ function Uninstall-MotivationWallpaper {
  if(!(Test-Path -LiteralPath $manifestPath)){throw 'No managed installation found.'}
  $manifest=Get-Content -LiteralPath $manifestPath -Raw|ConvertFrom-Json
  if($manifest.product -ne 'MotivationWallpaper' -or $manifest.directory -ne $target){throw 'Installation ownership does not match.'}
- $allowed=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE')
+ $allowed=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE')
  foreach($name in $manifest.files){if($name -notin $allowed){throw 'Invalid installation file list; nothing removed.'}}
  if($manifest.taskName -and $manifest.taskName -ne 'MotivationWallpaper'){throw 'Invalid scheduled task name; nothing removed.'}
  $scriptPath=Join-Path $target 'SetMotivationWallpaper.ps1';$launcher=[string]$manifest.launcher

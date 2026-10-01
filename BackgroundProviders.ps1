@@ -22,15 +22,20 @@ function Get-CommonsBackground($Folder,$Recent,$MinWidth,$MinHeight) {
  $catalog=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'commons-backgrounds.json') -Raw|ConvertFrom-Json
  $headers=@{'User-Agent'='MotivationWallpaper/0.1 (https://github.com/rafeehcp/motivation-wallpaper)'}
  $cachePath=Join-Path $Folder 'commons-metadata.json'
+ $catalogCachePath=Join-Path $Folder 'commons-catalog-version.json'
  $pages=@()
- if((Test-Path -LiteralPath $cachePath) -and (Get-Item -LiteralPath $cachePath).LastWriteTime -gt (Get-Date).AddDays(-1)){$loaded=Get-Content -LiteralPath $cachePath -Raw|ConvertFrom-Json;$pages=@($loaded)}
+ $allowed=@($catalog|ForEach-Object{$_.title})
+ $catalogId=Get-QuoteId (($allowed|Sort-Object) -join '|')
+ $cachedCatalog=$null
+ if(Test-Path -LiteralPath $catalogCachePath){try{$cachedCatalog=Get-Content -LiteralPath $catalogCachePath -Raw|ConvertFrom-Json}catch{}}
+ if((Test-Path -LiteralPath $cachePath) -and (Get-Item -LiteralPath $cachePath).LastWriteTime -gt (Get-Date).AddDays(-1) -and $cachedCatalog -and $cachedCatalog.PSObject.Properties['id'] -and $cachedCatalog.id -eq $catalogId){$loaded=Get-Content -LiteralPath $cachePath -Raw|ConvertFrom-Json;$pages=@($loaded)}
  else {
   $titles=($catalog|ForEach-Object{$_.title}) -join '|'
   $uri='https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2&prop=imageinfo&iiprop=url%7Csize%7Csha1%7Cmime%7Cextmetadata&iiurlwidth=3840&titles='+[uri]::EscapeDataString($titles)
   $response=Invoke-Service -Uri $uri -Headers $headers -TimeoutSeconds 10 -Attempts 1
   $pages=@($response.query.pages);Save-Json $cachePath $pages
+  Save-Json $catalogCachePath @{id=$catalogId}
  }
- $allowed=@($catalog|ForEach-Object{$_.title})
  $candidates=@(foreach($page in $pages){if($page.title -in $allowed){$candidate=ConvertTo-CommonsCandidate $page $MinWidth $MinHeight;if($candidate -and $candidate.id -notin $Recent){$candidate}}})
  if(!$candidates.Count){throw 'No eligible unused Commons photo in the reviewed collection.'}
  $selected=$candidates|Get-Random

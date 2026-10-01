@@ -35,6 +35,15 @@ Testing started with the published v0.1.0 archive under Windows PowerShell 5.1 i
 
 Sanitized findings are recorded here; private profile paths, credentials, and raw test reports are not included in the repository.
 
+## v0.1.2 update validation
+
+- All 37 catalog entries checked against live Commons metadata for CC0 license, author, revision, dimensions, and restrictions; new thumbnail compositions reviewed. All entries pass runtime eligibility at 1920 by 1920 pixels. Photos are fetched at runtime and are not bundled.
+- Metadata cache invalidation verified after a catalog change, without redownloading an existing valid photo.
+- Conservative cleanup fixtures cover age/count retention, current and restore files, edited run files, source dependencies, unrelated files, malformed metadata, junctions, and failed removal.
+- Preference fixtures cover default visibility, saved Boolean toggles, preserving unrelated settings, invalid metadata, and command-line configuration.
+- Actual three-screen fixture previews show that toggling credits changes only the footer; quote layout and HTML attribution remain intact. The configuration dialog's controls and Cancel behavior were checked without requiring credentials or applying wallpapers.
+- Installer, launcher settings routing, and uninstall include the new modules; wallpaper data and settings remain after uninstall.
+
 ## Release procedure
 
 Publish only the reviewed Commons/generated source snapshot. Keep earlier development history and private correspondence local. Run Windows CI before tagging a release, then publish a source-only release using GitHub's generated archives.

@@ -39,11 +39,23 @@ $app = Join-Path $env:LOCALAPPDATA 'MotivationWallpaper'
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly          # Live preview, uses APIs
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly -Demo    # Offline layout preview
 & "$app\SetMotivationWallpaper.ps1" -BackgroundSource Generated # Live screened quote, offline background
+& "$app\ConfigureMotivationWallpaper.ps1"                # Show/hide source credits
 & "$app\RestoreMotivationWallpaper.ps1"                  # Restore previous wallpapers
 & "$app\UninstallMotivationWallpaper.ps1"                # Remove installation and schedule
 ```
 
 Previews print the output folder; open its `preview.html`. Demo text is a synthetic layout example, not Jev approved. Uninstall retains downloaded images, history, API keys, and the current wallpaper. Restore before uninstall if desired. For a custom installation, pass the same `-InstallDirectory` to uninstall.
+
+## Wallpaper settings
+
+Run `ConfigureMotivationWallpaper.ps1` to open a checkbox for showing source credits on wallpapers. Credits are visible by default; the saved setting applies to future wallpapers. The desktop launcher also opens settings when run with the `settings` argument.
+
+```powershell
+& "$app\ConfigureMotivationWallpaper.ps1" -HideCredits
+& "$app\ConfigureMotivationWallpaper.ps1" -ShowCredits
+```
+
+Settings are saved in the wallpaper data folder's `settings.json`. A custom `-DataDirectory` must match the directory used for wallpaper updates. Source and license links remain in HTML previews; the offline demo retains its unscreened-layout label.
 
 ## How it works
 
@@ -51,9 +63,9 @@ Quotes come from ZenQuotes, with DummyJSON as an additional collection when need
 
 Quotes are evaluated in batches of ten. Approved unused quotes are reused from the assessment cache before requesting new evaluations. The model is pinned to `jev-1.13.0`; model or rubric changes must also change the assessment cache version.
 
-Commons backgrounds come from five manually reviewed CC0 nature photos. Runtime metadata must still identify the image as CC0 and provide its CC0 deed URL; other licenses and unreviewed files are excluded. Metadata is cached for 24 hours, and downloads are sized to support connected screens. Source and license links appear in previews, with photographer credits on the rendered wallpaper. Review records are in [commons-backgrounds.json](commons-backgrounds.json).
+Commons backgrounds come from 37 manually reviewed CC0 nature photos. Runtime metadata must still identify the image as CC0 and provide its CC0 deed URL; other licenses and unreviewed files are excluded. Metadata is cached for 24 hours, and downloads are sized to support connected screens. Source and license links appear in previews, with photographer credits on the rendered wallpaper. Review records are in [commons-backgrounds.json](commons-backgrounds.json).
 
-The small collection will exhaust under the last-30 rule. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. `-BackgroundSource Generated` bypasses Commons entirely; live quote screening still uses Jev.
+The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. `-BackgroundSource Generated` bypasses Commons entirely; live quote screening still uses Jev.
 
 The same quote and background appear on every monitor, cropped and typeset at each monitor's native resolution. Segoe UI, Bahnschrift, and Georgia are selected by theme with a Segoe UI fallback. Dark overlays, minimum font sizes, and left-side icon space support readability.
 
@@ -63,7 +75,7 @@ Service failures or exhausted quality checks preserve the current wallpaper. App
 
 Data lives in `%USERPROFILE%\Pictures\MotivationalWallpapers`: quote and assessment caches, `commons-metadata.json`, the last 30 successful quote/background IDs, original backgrounds, rendered images, previous wallpaper paths, and `wallpaper.log`. `-DataDirectory` overrides the main script's directory; restore currently uses the default directory.
 
-Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file metadata requests and image downloads when selected. Generated backgrounds require no image service. There is no project telemetry. Preview metadata contains local monitor identifiers and paths; share only reviewed output. Files are retained to keep active and restore wallpaper paths valid. There is no automatic storage cleanup.
+Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file metadata requests and image downloads when selected. Generated backgrounds require no image service. There is no project telemetry. Preview metadata contains local monitor identifiers and paths; share only reviewed output. After a successful update or preview, cleanup removes recognized run folders and unused source images older than 30 days. It always retains the newest 30 runs, current wallpaper files, restore files, and backgrounds needed by retained runs. Unrelated files, caches, settings, and history are preserved; links and unreadable metadata are skipped conservatively.
 
 ## Troubleshooting
 
@@ -81,6 +93,8 @@ Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file
 .\TestWallpaperBatch.ps1
 .\TestBackgroundProviders.ps1
 .\TestInstallation.ps1
+.\TestWallpaperStorage.ps1
+.\TestWallpaperPreferences.ps1
 # Interactive desktop only; mocked APIs, no credentials needed:
 .\TestMotivationWallpaper.ps1 -DesktopIntegration
 .\TestWallpaperRefresh.ps1
@@ -94,4 +108,4 @@ Inspirational quotes provided by [ZenQuotes API](https://zenquotes.io/), with ad
 
 Code: [MIT](LICENSE), copyright 2026 rafeehcp. No third-party photos, downloaded quote collections, API credentials, or fonts are bundled.
 
-This first release has been tested locally with Windows PowerShell 5.1 and three monitors. Installer behavior is tested in isolated folders with mocked credential and scheduler operations. Fresh-user credential dialogs and actual schedule registration still need broader community validation.
+Tested locally with Windows PowerShell 5.1 and three monitors, including a fresh standard-user installation, credential dialogs, actual scheduled execution, sign-in catch-up, restore, and uninstall. Broader community validation remains welcome.

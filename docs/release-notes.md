@@ -1,3 +1,10 @@
+# v0.1.2
+
+- Expand the reviewed Wikimedia Commons CC0 nature catalog from 5 to 37 photos. Catalog changes refresh metadata immediately; normal runs continue using the cache.
+- Automatically remove recognized wallpaper runs and unused source images older than 30 days, keeping the newest 30 runs, active wallpapers, restore paths, and recently edited files. Unrelated files, caches, and links are preserved.
+- Add a saved setting to show or hide source credits on wallpapers. Credits remain visible by default. Run `ConfigureMotivationWallpaper.ps1` or launch `Change Wallpaper.cmd settings` to change the checkbox; HTML previews retain attribution.
+- Add storage and preference regression suites to Windows CI. Verified on three screens that hiding credits changes only the footer, without changing the quote layout or preview attribution.
+
 # v0.1.1
 
 - Fix monitor enumeration stopping when Windows retains an unavailable legacy monitor whose rectangle query returns `E_FAIL`. Continue rendering on the working screens; other COM errors still surface.

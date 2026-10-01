@@ -33,6 +33,10 @@ function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
 $photo=Get-CommonsBackground $folder @() 1920 1920
 $again=Get-CommonsBackground $folder @() 1920 1920
 Assert ($photo.id -eq $again.id -and $script:metadataCalls -eq 1 -and $script:downloads -eq 1) 'Metadata and validated downloads are cached'
+Save-Json (Join-Path $folder 'commons-catalog-version.json') @{id='earlier-catalog'}
+$refreshed=Get-CommonsBackground $folder @() 1920 1920
+$cachedAgain=Get-CommonsBackground $folder @() 1920 1920
+Assert ($script:metadataCalls -eq 2 -and $script:downloads -eq 1 -and $refreshed.id -eq $cachedAgain.id) 'An expanded catalog refreshes metadata once without downloading a cached photo again'
 $rejected=$false;try{Get-CommonsBackground $folder @($photo.id) 1920 1920}catch{$rejected=$true}
 Assert $rejected 'Recently used Commons photo is excluded'
 $BackgroundSource='Commons';$Automatic=$true

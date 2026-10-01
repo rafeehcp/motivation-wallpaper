@@ -20,10 +20,16 @@ $text=[IO.File]::ReadAllText($launcher)
 Assert ($text.Contains('-File "'+(Join-Path $InstallDirectory 'SetMotivationWallpaper.ps1')+'"') -and $text.Contains('if errorlevel 1 (')) 'Launcher quotes paths and pauses only on error'
 Assert ($text.Contains([string][char]0x00e9) -and $text.Contains('chcp 65001 >nul')) 'Launcher preserves Unicode installation paths'
 Assert ($text.Contains('-BackgroundSource Commons') -and (Test-Path (Join-Path $InstallDirectory 'commons-backgrounds.json'))) 'Installation includes Commons collection and launcher source choice'
+Assert ((Test-Path (Join-Path $InstallDirectory 'WallpaperStorage.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'WallpaperPreferences.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1')) -and $text.Contains('goto settings')) 'Installation includes cleanup and saved credit configuration'
 $fixtureScript=Join-Path $InstallDirectory 'SetMotivationWallpaper.ps1'
 @("'ok' | Set-Content (Join-Path `$PSScriptRoot 'launcher-result.txt')",'exit 0')|Set-Content -LiteralPath $fixtureScript -Encoding ASCII
 & $env:ComSpec /d /c ('"'+$launcher+'"')
 Assert ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $InstallDirectory 'launcher-result.txt'))) 'Real launcher executes successfully with spaces and Unicode and exits without a pause'
+$fixtureSettings=Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1'
+@("'ok' | Set-Content (Join-Path `$PSScriptRoot 'settings-result.txt')",'exit 0')|Set-Content -LiteralPath $fixtureSettings -Encoding ASCII
+Remove-Item -LiteralPath (Join-Path $InstallDirectory 'launcher-result.txt')
+& $env:ComSpec /d /c ('"'+$launcher+'" settings')
+Assert ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $InstallDirectory 'settings-result.txt')) -and !(Test-Path (Join-Path $InstallDirectory 'launcher-result.txt'))) 'Launcher settings argument opens configuration without changing wallpaper'
 Install-MotivationWallpaper
 Assert ($script:schedules -eq 0) 'Repeated manual-only setup succeeds'
 $NoSchedule=$false;Install-MotivationWallpaper

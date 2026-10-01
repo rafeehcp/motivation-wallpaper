@@ -108,12 +108,29 @@ function Get-Candidates($Folder,[switch]$Supplemental) {
  if(!$quotes.Count){throw 'No usable quotes returned.'};Save-Json $path $quotes;return $quotes
 }
 . (Join-Path $PSScriptRoot 'BackgroundProviders.ps1')
+. (Join-Path $PSScriptRoot 'WallpaperStorage.ps1')
+. (Join-Path $PSScriptRoot 'WallpaperPreferences.ps1')
+function Invoke-StorageCleanup($Desktop,$Monitors) {
+ try {
+  $protected=@($Monitors|ForEach-Object{$Desktop.Get($_.Id)})
+  foreach($name in @('previous-wallpapers.json','previous-wallpapers.json.previous')){
+   $path=Join-Path $DataDirectory $name
+   if(Test-Path -LiteralPath $path){
+    $previous=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json
+    if(!$previous.PSObject.Properties['wallpapers']){throw 'Unrecognized restore state.'}
+    $protected+=@($previous.wallpapers|ForEach-Object{$_.path})
+   }
+  }
+  Remove-OldWallpaperData -Folder $DataDirectory -ProtectedPaths $protected|Out-Null
+ }catch{Write-Verbose 'Storage cleanup skipped; wallpaper update was preserved.'}
+}
 function Invoke-Wallpaper {
  if($Demo -and !$PreviewOnly){throw '-Demo requires -PreviewOnly.'}
  New-Item -ItemType Directory -Path $DataDirectory -Force|Out-Null
  $lock=$null
  try {
   try{$lock=[IO.File]::Open((Join-Path $DataDirectory 'run.lock'),'OpenOrCreate','ReadWrite','None')}catch [IO.IOException]{Write-Output 'Another run is active; skipped.';return}
+  $showCredits=Get-WallpaperShowCredits $DataDirectory
   $historyPath=Join-Path $DataDirectory 'history.json';$history=@{entries=@();lastAutomaticDate='';sequence=0}
   if(Test-Path $historyPath){$history=Get-Content $historyPath -Raw|ConvertFrom-Json}
   $today=Get-Date -Format 'yyyy-MM-dd'
@@ -163,6 +180,7 @@ function Invoke-Wallpaper {
     $path=Join-Path $runFolder "monitor_$index.png"
     $source=if($quote.PSObject.Properties['source']){$quote.source}else{'zenquotes.io'}
     $credit=if($Demo){'LAYOUT PREVIEW - NOT SCREENED BY JEV'}else{"Quotes: $source  |  $(Get-BackgroundCredit $background)"}
+    if(!$showCredits -and !$Demo){$credit=''}
     $size=[Motivation.Renderer]::Render($background.path,$path,$monitor.Width,$monitor.Height,[string]$quote.q,[string]$quote.a,$credit,$theme)
     $outputs+=@{monitor=$monitor.Id;path=$path;width=$monitor.Width;height=$monitor.Height;fontPixels=$size};$index++
    }
@@ -171,7 +189,7 @@ function Invoke-Wallpaper {
    for($i=0;$i -lt $outputs.Count;$i++){$html+="<h2>Monitor $($i+1): $($outputs[$i].width) x $($outputs[$i].height)</h2><img src=`"monitor_$i.png`" alt=`"Wallpaper preview`">"}
    if($source -eq 'dummyjson.com'){$html=$html.Replace('https://zenquotes.io/','https://dummyjson.com/docs/quotes').Replace('ZenQuotes API','DummyJSON quote collection')}
    $html|Set-Content (Join-Path $runFolder 'preview.html') -Encoding UTF8
-   if($PreviewOnly){Write-Output "Preview ready: $runFolder";return}
+   if($PreviewOnly){Invoke-StorageCleanup $desktop $monitors;Write-Output "Preview ready: $runFolder";return}
    $previous=@($monitors|ForEach-Object{@{monitor=$_.Id;path=$desktop.Get($_.Id)}});$position=$desktop.Position()
    Save-Json (Join-Path $DataDirectory 'previous-wallpapers.json') @{position=$position;wallpapers=$previous}
    try {
@@ -182,6 +200,7 @@ function Invoke-Wallpaper {
     if($Automatic){$state.lastAutomaticDate=$today};Save-Json $historyPath $state
    }catch{foreach($old in $previous){try{$desktop.Set($old.monitor,$old.path)}catch{}};try{$desktop.SetPosition($position)}catch{};throw}
    Add-Content (Join-Path $DataDirectory 'wallpaper.log') "$(Get-Date -Format o) SUCCESS $($outputs.Count) monitors; theme $theme; photo $($background.id)"
+   Invoke-StorageCleanup $desktop $monitors
    Write-Output "Wallpaper applied to $($outputs.Count) screens."
   }finally{$desktop.Dispose()}
  }catch{Add-Content (Join-Path $DataDirectory 'wallpaper.log') "$(Get-Date -Format o) ERROR $($_.Exception.Message)";throw}finally{if($lock){$lock.Dispose()}}

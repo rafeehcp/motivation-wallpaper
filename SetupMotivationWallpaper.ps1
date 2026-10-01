@@ -42,16 +42,17 @@ function Install-MotivationWallpaper {
  }
  $launcher=Join-Path (Get-WallpaperDesktopPath) 'Change Wallpaper.cmd';$scriptPath=Join-Path $target 'SetMotivationWallpaper.ps1'
  if((Test-Path -LiteralPath $launcher) -and (!$prior -or $prior.launcher -ne $launcher -or !([IO.File]::ReadAllText($launcher)).Contains($scriptPath))){throw 'Desktop launcher belongs to another installation.'}
- $payload=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE')
+ $payload=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE')
  foreach($name in $payload){if(!(Test-Path -LiteralPath (Join-Path $PSScriptRoot $name))){throw "Missing release file: $name"}}
  Set-WallpaperCredentials
  New-Item -ItemType Directory -Path $target -Force|Out-Null
  foreach($name in $payload){$source=Join-Path $PSScriptRoot $name;$destination=Join-Path $target $name;if([IO.Path]::GetFullPath($source) -ne $destination){Copy-Item -LiteralPath $source -Destination $destination -Force}}
- $manifest=@{product='MotivationWallpaper';version='0.1.0';directory=$target;launcher=$launcher;taskName='';files=$payload;backgroundSource=$BackgroundSource}
+ $manifest=@{product='MotivationWallpaper';version='0.1.2';directory=$target;launcher=$launcher;taskName='';files=$payload;backgroundSource=$BackgroundSource}
  if($prior){$manifest.taskName=$prior.taskName}
  $manifest|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifestPath -Encoding UTF8
  if(!$NoSchedule){Register-WallpaperTask $scriptPath $target;$manifest.taskName='MotivationWallpaper';$manifest|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifestPath -Encoding UTF8}
- $lines=@('@echo off','chcp 65001 >nul','rem MotivationWallpaper managed launcher','title Change motivational wallpaper',('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+$scriptPath+'" -BackgroundSource '+$BackgroundSource),'if errorlevel 1 (','  echo Wallpaper could not be changed. See the error above.','  pause',')')
+ $settingsPath=Join-Path $target 'ConfigureMotivationWallpaper.ps1'
+ $lines=@('@echo off','chcp 65001 >nul','rem MotivationWallpaper managed launcher','title Change motivational wallpaper','if /i "%~1"=="settings" goto settings',('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+$scriptPath+'" -BackgroundSource '+$BackgroundSource),'if errorlevel 1 (','  echo Wallpaper could not be changed. See the error above.','  pause',')','exit /b %errorlevel%',':settings',('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+$settingsPath+'"'),'if errorlevel 1 pause','exit /b %errorlevel%')
  [IO.File]::WriteAllLines($launcher,$lines,(New-Object Text.UTF8Encoding($false)))
  Write-Output "Installed in $target. Double-click Change Wallpaper.cmd on your desktop."
  if($NoSchedule){Write-Output 'No schedule added. Any existing managed schedule is retained.'}
