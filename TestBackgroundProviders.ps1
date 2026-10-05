@@ -56,9 +56,11 @@ $script:downloads=0
 Save-NextCommonsBackground $prefetchFolder @() 1920 1920
 Save-NextCommonsBackground $prefetchFolder @() 1920 1920
 Assert ($script:downloads -eq 1 -and @(Get-ChildItem $prefetchFolder -Filter 'commons_*').Count -eq 1 -and @(Get-ChildItem $prefetchFolder -Filter '*.partial').Count -eq 0) 'Saving the next photo downloads one photo once and leaves no partial file'
-$saved=(Get-ChildItem $prefetchFolder -Filter 'commons_*').FullName
+# Compare names: Get-ChildItem expands 8.3 short folder names (CI's TEMP is C:\Users\RUNNER~1\...)
+# while the providers keep the path they were given.
+$saved=(Get-ChildItem $prefetchFolder -Filter 'commons_*').Name
 $picks=@(1..8|ForEach-Object{Get-CommonsBackground $prefetchFolder @() 1920 1920});$used=$picks[0]
-Assert (@($picks|Where-Object{$_.path -ne $saved}).Count -eq 0 -and $script:downloads -eq 1) 'The next update uses the saved photo without downloading'
+Assert (@($picks|Where-Object{[IO.Path]::GetFileName($_.path) -ne $saved}).Count -eq 0 -and $script:downloads -eq 1) 'The next update uses the saved photo without downloading'
 Save-NextCommonsBackground $prefetchFolder @($used.id) 1920 1920
 Assert ($script:downloads -eq 2 -and @(Get-ChildItem $prefetchFolder -Filter 'commons_*').Count -eq 2) 'After that photo is used, the next unused photo is saved'
 function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
