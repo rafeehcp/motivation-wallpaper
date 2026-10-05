@@ -42,4 +42,9 @@ $script:archive=Join-Path $testRoot 'missing.zip';Compress-Archive -LiteralPath 
 $script:checksum=(Get-FileHash $script:archive -Algorithm SHA256).Hash;$failed=$false;$before=$script:setupCalls
 try{Install-WallpaperRelease}catch{$failed=$_.Exception.Message -like '*setup script*'}
 Assert ($failed -and $script:setupCalls -eq $before) 'Incomplete archive rejected before setup'
+# The README command pipes the script into iex, where param() declares plain
+# variables instead of binding parameters. Run it in a child process so those
+# constrained variables cannot leak into this session.
+$piped=& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "function Invoke-WebRequest{throw 'Fixture download failure'};try{Get-Content -LiteralPath '$(Join-Path $PSScriptRoot 'Install.ps1')' -Raw|Invoke-Expression}catch{`$_.Exception.Message}" 2>&1|Out-String
+Assert ($piped -like '*download failure*') 'Piped iex installation reaches download with default options'
 Write-Output "Installer fixtures: $testRoot"

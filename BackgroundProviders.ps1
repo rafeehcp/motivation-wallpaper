@@ -8,7 +8,12 @@ function ConvertTo-CommonsCandidate($Page,$MinWidth,$MinHeight) {
   if($meta.PSObject.Properties['Restrictions'] -and $meta.Restrictions.value){return $null}
   if($info.mime -notin @('image/jpeg','image/png') -or $info.width -lt $MinWidth -or $info.height -lt $MinHeight){return $null}
   $download=[string]$info.url
-  if($info.PSObject.Properties['thumburl'] -and $info.thumbwidth -ge $MinWidth -and $info.thumbheight -ge $MinHeight){$download=[string]$info.thumburl}
+  if($info.PSObject.Properties['thumburl'] -and $info.thumbwidth -ge $MinWidth -and $info.thumbheight -ge $MinHeight){
+   $download=[string]$info.thumburl
+   # Commons serves only standard thumbnail widths, so a smaller iiurlwidth still returns 3840.
+   # The 1920 file is about 40% of the bytes when it covers every monitor.
+   if($MinWidth -le 1920 -and [Math]::Floor(1920*$info.height/$info.width) -ge $MinHeight){$download=$download -replace '/3840px-','/1920px-'}
+  }
   elseif($info.size -gt 10485760){return $null}
   if(([uri]$download).Scheme -ne 'https' -or ([uri]$download).Host -notin @('upload.wikimedia.org','thumb.wikimedia.org')){return $null}
   if(([uri]$info.descriptionurl).Scheme -ne 'https' -or ([uri]$info.descriptionurl).Host -ne 'commons.wikimedia.org'){return $null}
@@ -18,9 +23,9 @@ function ConvertTo-CommonsCandidate($Page,$MinWidth,$MinHeight) {
   return @{id=('commons:'+$Page.pageid+':'+$info.sha1);url=[string]$info.descriptionurl;download=$download;photographer=$artist.Trim();source='Commons';license='CC0 1.0';licenseUrl='https://creativecommons.org/publicdomain/zero/1.0/';mime=$info.mime}
  }catch{return $null}
 }
-function Get-CommonsBackground($Folder,$Recent,$MinWidth,$MinHeight) {
+$CommonsHeaders=@{'User-Agent'='MotivationWallpaper/0.1 (https://github.com/rafeehcp/motivation-wallpaper)'}
+function Get-CommonsCandidates($Folder,$Recent,$MinWidth,$MinHeight) {
  $catalog=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'commons-backgrounds.json') -Raw|ConvertFrom-Json
- $headers=@{'User-Agent'='MotivationWallpaper/0.1 (https://github.com/rafeehcp/motivation-wallpaper)'}
  $cachePath=Join-Path $Folder 'commons-metadata.json'
  $catalogCachePath=Join-Path $Folder 'commons-catalog-version.json'
  $pages=@()
@@ -32,22 +37,42 @@ function Get-CommonsBackground($Folder,$Recent,$MinWidth,$MinHeight) {
  else {
   $titles=($catalog|ForEach-Object{$_.title}) -join '|'
   $uri='https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2&prop=imageinfo&iiprop=url%7Csize%7Csha1%7Cmime%7Cextmetadata&iiurlwidth=3840&titles='+[uri]::EscapeDataString($titles)
-  $response=Invoke-Service -Uri $uri -Headers $headers -TimeoutSeconds 10 -Attempts 1
+  $response=Invoke-Service -Uri $uri -Headers $CommonsHeaders -TimeoutSeconds 10 -Attempts 1
   $pages=@($response.query.pages);Save-Json $cachePath $pages
   Save-Json $catalogCachePath @{id=$catalogId}
  }
- $candidates=@(foreach($page in $pages){if($page.title -in $allowed){$candidate=ConvertTo-CommonsCandidate $page $MinWidth $MinHeight;if($candidate -and $candidate.id -notin $Recent){$candidate}}})
+ $candidates=@(foreach($page in $pages){if($page.title -in $allowed){$candidate=ConvertTo-CommonsCandidate $page $MinWidth $MinHeight;if($candidate -and $candidate.id -notin $Recent){
+  $extension=if($candidate.mime -eq 'image/png'){'.png'}else{'.jpg'}
+  $candidate.path=Join-Path $Folder ('commons_'+(Get-QuoteId $candidate.id)+'_'+$MinWidth+'x'+$MinHeight+$extension);$candidate
+ }}})
  if(!$candidates.Count){throw 'No eligible unused Commons photo in the reviewed collection.'}
- $selected=$candidates|Get-Random
- $extension=if($selected.mime -eq 'image/png'){'.png'}else{'.jpg'}
- $path=Join-Path $Folder ('commons_'+(Get-QuoteId $selected.id)+'_'+$MinWidth+'x'+$MinHeight+$extension)
- # Validate before rendering. Partial downloads are never retained as valid cache entries.
+ return $candidates
+}
+function Save-CommonsPhoto($Photo,$MinWidth,$MinHeight) {
+ # Downloads go to a separate name, so an interrupted transfer never looks like a saved photo.
+ $partial=$Photo.path+'.partial'
  try {
-  if(!(Test-Path -LiteralPath $path)){Invoke-Service -Uri $selected.download -Headers $headers -OutFile $path -TimeoutSeconds 10 -Attempts 1}
-  $image=[Drawing.Image]::FromFile($path)
+  if(!(Test-Path -LiteralPath $Photo.path)){
+   Invoke-Service -Uri $Photo.download -Headers $CommonsHeaders -OutFile $partial -TimeoutSeconds 10 -Attempts 1
+   Move-Item -LiteralPath $partial -Destination $Photo.path
+  }
+  $image=[Drawing.Image]::FromFile($Photo.path)
   try{if($image.Width -lt $MinWidth -or $image.Height -lt $MinHeight){throw 'Downloaded photo is too small.'}}finally{$image.Dispose()}
- }catch{if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path};throw}
- $selected.path=$path;return $selected
+ }catch{foreach($path in @($Photo.path,$partial)){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path}};throw}
+}
+function Get-CommonsBackground($Folder,$Recent,$MinWidth,$MinHeight) {
+ $candidates=Get-CommonsCandidates $Folder $Recent $MinWidth $MinHeight
+ # Prefer a photo already on disk, such as one saved by Save-NextCommonsBackground.
+ $saved=@($candidates|Where-Object{Test-Path -LiteralPath $_.path})
+ $selected=if($saved.Count){$saved|Get-Random}else{$candidates|Get-Random}
+ Save-CommonsPhoto $selected $MinWidth $MinHeight
+ return $selected
+}
+# Called after a successful update, so the next update finds an unused photo already saved.
+function Save-NextCommonsBackground($Folder,$Recent,$MinWidth,$MinHeight) {
+ $candidates=Get-CommonsCandidates $Folder $Recent $MinWidth $MinHeight
+ if(@($candidates|Where-Object{Test-Path -LiteralPath $_.path}).Count){return}
+ Save-CommonsPhoto ($candidates|Get-Random) $MinWidth $MinHeight
 }
 function Get-GeneratedBackground($Folder,$Theme,$Width,$Height) {
  $id='generated:'+([guid]::NewGuid().ToString('N'));$seed=Get-Random -Minimum 0 -Maximum ([int]::MaxValue)

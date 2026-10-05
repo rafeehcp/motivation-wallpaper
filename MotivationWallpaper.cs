@@ -37,6 +37,83 @@ namespace Motivation {
   public int Position(){return api.GetPosition();}public void SetPosition(int position){api.SetPosition(position);}
   public void Dispose(){if(api!=null){Marshal.ReleaseComObject(api);api=null;}}
  }
+ // The app icon: a white quotation mark over hills on a rounded sky tile.
+ public static class AppIcon {
+  static readonly int[] Sizes={16,24,32,48,64,256};
+  public static Bitmap Draw(int size){
+   var bitmap=new Bitmap(size,size,PixelFormat.Format32bppArgb);
+   using(var g=Graphics.FromImage(bitmap)){
+    g.SmoothingMode=SmoothingMode.AntiAlias;g.PixelOffsetMode=PixelOffsetMode.HighQuality;g.Clear(Color.Transparent);
+    float s=size,inset=size>=48?s*0.04f:0.5f;bool small=size<32;
+    var area=new RectangleF(inset,inset,s-2*inset,s-2*inset);
+    using(var tile=Rounded(area,area.Width*0.22f)){
+     using(var sky=new LinearGradientBrush(area,Color.FromArgb(0,95,184),Color.FromArgb(120,196,242),LinearGradientMode.Vertical))g.FillPath(sky,tile);
+     g.SetClip(tile);
+     // Small sizes keep one hill so the shapes stay distinct.
+     if(!small)using(var back=Hill(s,0.70f,0.60f,0.63f,0.56f,0.58f))using(var brush=new SolidBrush(Color.FromArgb(95,175,126)))g.FillPath(brush,back);
+     using(var front=Hill(s,0.80f,0.66f,0.74f,0.76f,0.72f))using(var brush=new SolidBrush(Color.FromArgb(46,125,91)))g.FillPath(brush,front);
+     using(var quote=new GraphicsPath()){
+      quote.AddString("“",new FontFamily("Georgia"),(int)FontStyle.Bold,100f,PointF.Empty,StringFormat.GenericTypographic);
+      var bounds=quote.GetBounds();float height=s*(small?0.50f:0.40f),scale=height/bounds.Height;
+      using(var m=new Matrix()){
+       m.Translate(s*0.5f,s*(small?0.36f:0.35f));m.Scale(scale,scale);m.Translate(-(bounds.X+bounds.Width/2),-(bounds.Y+bounds.Height/2));
+       quote.Transform(m);
+      }
+      g.FillPath(Brushes.White,quote);
+     }
+    }
+   }
+   return bitmap;
+  }
+  static GraphicsPath Rounded(RectangleF r,float radius){
+   var path=new GraphicsPath();float d=radius*2;
+   path.AddArc(r.X,r.Y,d,d,180,90);path.AddArc(r.Right-d,r.Y,d,d,270,90);path.AddArc(r.Right-d,r.Bottom-d,d,d,0,90);path.AddArc(r.X,r.Bottom-d,d,d,90,90);path.CloseFigure();
+   return path;
+  }
+  // A hill whose top runs from left through a peak and a dip to right, as fractions of the size.
+  static GraphicsPath Hill(float s,float left,float peak,float dip,float rise,float right){
+   var path=new GraphicsPath();
+   path.AddBezier(0,s*left,s*0.22f,s*peak,s*0.42f,s*peak,s*0.6f,s*dip);
+   path.AddBezier(s*0.6f,s*dip,s*0.76f,s*(dip+0.06f),s*0.88f,s*rise,s,s*right);
+   path.AddLine(s,s*right,s,s);path.AddLine(s,s,0,s);path.CloseFigure();
+   return path;
+  }
+  // Writes a multi-size .ico: PNG for 256 pixels, and the classic 32-bit bitmap format below,
+  // which every icon reader accepts (System.Drawing, for one, cannot decode small PNG entries).
+  public static void Save(string path){
+   var images=new List<byte[]>();
+   foreach(var size in Sizes)using(var bitmap=Draw(size)){
+    if(size>=256)using(var stream=new System.IO.MemoryStream()){bitmap.Save(stream,ImageFormat.Png);images.Add(stream.ToArray());}
+    else images.Add(IconBitmap(bitmap));
+   }
+   using(var writer=new System.IO.BinaryWriter(System.IO.File.Create(path))){
+    writer.Write((short)0);writer.Write((short)1);writer.Write((short)Sizes.Length);
+    int offset=6+16*Sizes.Length;
+    for(int i=0;i<Sizes.Length;i++){
+     var edge=(byte)(Sizes[i]>=256?0:Sizes[i]);
+     writer.Write(edge);writer.Write(edge);writer.Write((byte)0);writer.Write((byte)0);writer.Write((short)1);writer.Write((short)32);writer.Write(images[i].Length);writer.Write(offset);
+     offset+=images[i].Length;
+    }
+    foreach(var image in images)writer.Write(image);
+   }
+  }
+  // An icon bitmap is a BITMAPINFOHEADER with doubled height, bottom-up BGRA rows, then a 1-bit mask.
+  // The mask stays clear because the alpha channel already carries transparency.
+  static byte[] IconBitmap(Bitmap bitmap){
+   int size=bitmap.Width,maskStride=((size+31)/32)*4;
+   using(var stream=new System.IO.MemoryStream())using(var writer=new System.IO.BinaryWriter(stream)){
+    writer.Write(40);writer.Write(size);writer.Write(size*2);writer.Write((short)1);writer.Write((short)32);
+    writer.Write(0);writer.Write(size*size*4+maskStride*size);writer.Write(0);writer.Write(0);writer.Write(0);writer.Write(0);
+    var data=bitmap.LockBits(new Rectangle(0,0,size,size),ImageLockMode.ReadOnly,PixelFormat.Format32bppArgb);
+    try{
+     var row=new byte[size*4];
+     for(int y=size-1;y>=0;y--){Marshal.Copy(IntPtr.Add(data.Scan0,y*data.Stride),row,0,row.Length);writer.Write(row);}
+    }finally{bitmap.UnlockBits(data);}
+    writer.Write(new byte[maskStride*size]);
+    return stream.ToArray();
+   }
+  }
+ }
  public static class Renderer {
   public static void GenerateBackground(string output,int width,int height,string theme,int seed){
    var random=new Random(seed);

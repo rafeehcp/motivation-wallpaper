@@ -91,6 +91,22 @@ try {
  Assert ($result.skipped -gt 0 -and (Test-Path $script:blockedPath) -and (Test-Path $failureBackground)) 'A removal failure remains nonfatal and preserves the surviving run background'
  $result=Remove-OldWallpaperData ([char]0)
  Assert ($result.skipped -eq 1) 'Invalid paths produce a nonfatal diagnostic rather than throwing'
+ . (Join-Path $PSScriptRoot 'RestoreMotivationWallpaper.ps1')
+ $script:screens=@{one='new-1.png';two='new-2.png'};$script:position=4;$script:failSet=''
+ $fake=New-Object psobject
+ $fake|Add-Member ScriptMethod Get {param($id) $script:screens[$id]}
+ $fake|Add-Member ScriptMethod Set {param($id,$path) if($path -eq $script:failSet){throw 'Simulated set failure'};$script:screens[$id]=$path}
+ $fake|Add-Member ScriptMethod Position {$script:position}
+ $fake|Add-Member ScriptMethod SetPosition {param($value) $script:position=$value}
+ $restoreState=Join-Path $folder 'previous-wallpapers.json'
+ @{position=2;wallpapers=@(@{monitor='one';path='old-1.png'},@{monitor='two';path='old-2.png'})}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $restoreState
+ Switch-WallpaperRestoreState $fake $restoreState
+ Assert ($script:screens.one -eq 'old-1.png' -and $script:screens.two -eq 'old-2.png' -and $script:position -eq 2) 'Restore applies the recorded wallpapers and position'
+ Switch-WallpaperRestoreState $fake $restoreState
+ Assert ($script:screens.one -eq 'new-1.png' -and $script:screens.two -eq 'new-2.png' -and $script:position -eq 4) 'A second restore switches back to the newer wallpapers'
+ $script:failSet='old-2.png';$before=Get-Content -LiteralPath $restoreState -Raw;$failed=$false
+ try{Switch-WallpaperRestoreState $fake $restoreState}catch{$failed=$_.Exception.Message -like '*Simulated*'}
+ Assert ($failed -and $script:screens.one -eq 'new-1.png' -and $script:position -eq 4 -and (Get-Content -LiteralPath $restoreState -Raw) -eq $before) 'A failed restore rolls back the desktop and keeps the recorded state'
  Write-Host 'Wallpaper storage tests passed.'
 }finally {
  # The fixture path is generated under TEMP and all junctions must be gone first.

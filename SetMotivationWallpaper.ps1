@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([switch]$PreviewOnly,[switch]$Automatic,[switch]$Demo,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers",[ValidateSet('Commons','Generated')][string]$BackgroundSource='Commons',[ValidateSet('Basic','Jev')][string]$QuoteScreening)
+param([switch]$PreviewOnly,[switch]$Automatic,[switch]$Demo,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers",[ValidateSet('Commons','Generated')][string]$BackgroundSource,[ValidateSet('Basic','Jev')][string]$QuoteScreening)
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version 2
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
@@ -135,6 +135,8 @@ function Get-Candidates($Folder,[switch]$Supplemental) {
 . (Join-Path $PSScriptRoot 'BackgroundProviders.ps1')
 . (Join-Path $PSScriptRoot 'WallpaperStorage.ps1')
 . (Join-Path $PSScriptRoot 'WallpaperPreferences.ps1')
+# An explicit -BackgroundSource overrides the saved setting for one run.
+function Get-RunBackgroundSource {if($BackgroundSource){return $BackgroundSource};return Get-WallpaperBackgroundSource $DataDirectory}
 function Invoke-StorageCleanup($Desktop,$Monitors) {
  try {
   $protected=@($Monitors|ForEach-Object{$Desktop.Get($_.Id)})
@@ -204,6 +206,7 @@ function Invoke-Wallpaper {
      }
      if(!$quote){throw 'No quote passed quality checks. Wallpaper preserved.'}
     }
+    $BackgroundSource=Get-RunBackgroundSource
     $background=Get-Background $DataDirectory @($recent|ForEach-Object{$_.photoId}) ($monitors|Measure-Object Width -Maximum).Maximum ($monitors|Measure-Object Height -Maximum).Maximum $theme
    }
    $runFolder=Join-Path $DataDirectory ((Get-Date -Format 'yyyyMMdd_HHmmss_fff')+$(if($PreviewOnly){'_preview'}else{'_wallpaper'}));New-Item -ItemType Directory $runFolder|Out-Null
@@ -234,6 +237,11 @@ function Invoke-Wallpaper {
    Add-Content (Join-Path $DataDirectory 'wallpaper.log') "$(Get-Date -Format o) SUCCESS $($outputs.Count) monitors; theme $theme; photo $($background.id)"
    Invoke-StorageCleanup $desktop $monitors
    Write-Output "Wallpaper applied to $($outputs.Count) screens."
+   # Skipped when Commons failed this run, to avoid a second timeout.
+   if($background.source -eq 'Commons'){
+    try{Save-NextCommonsBackground $DataDirectory @($state.entries|ForEach-Object{$_.photoId}) ($monitors|Measure-Object Width -Maximum).Maximum ($monitors|Measure-Object Height -Maximum).Maximum}
+    catch{Write-Verbose 'Next photo download skipped.'}
+   }
   }finally{$desktop.Dispose()}
  }catch{Add-Content (Join-Path $DataDirectory 'wallpaper.log') "$(Get-Date -Format o) ERROR $($_.Exception.Message)";throw}finally{if($lock){$lock.Dispose()}}
 }

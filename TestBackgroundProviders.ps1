@@ -39,7 +39,64 @@ $cachedAgain=Get-CommonsBackground $folder @() 1920 1920
 Assert ($script:metadataCalls -eq 2 -and $script:downloads -eq 1 -and $refreshed.id -eq $cachedAgain.id) 'An expanded catalog refreshes metadata once without downloading a cached photo again'
 $rejected=$false;try{Get-CommonsBackground $folder @($photo.id) 1920 1920}catch{$rejected=$true}
 Assert $rejected 'Recently used Commons photo is excluded'
-$BackgroundSource='Commons';$Automatic=$true
+$wide=$page|ConvertTo-Json -Depth 10|ConvertFrom-Json
+$wide.imageinfo[0].width=4032;$wide.imageinfo[0].height=2432;$wide.imageinfo[0].thumbwidth=3840;$wide.imageinfo[0].thumbheight=2316
+$wide.imageinfo[0].thumburl='https://thumb.wikimedia.org/thumb/5/5c/Sun.jpg/3840px-Sun.jpg'
+Assert ((ConvertTo-CommonsCandidate $wide 1920 1080).download -like '*/1920px-Sun.jpg') 'Landscape monitors download the 1920 thumbnail when it covers them'
+Assert ((ConvertTo-CommonsCandidate $wide 1920 1920).download -like '*/3840px-Sun.jpg') 'A portrait monitor keeps the 3840 thumbnail when 1920 would be too short'
+$second=$page|ConvertTo-Json -Depth 10|ConvertFrom-Json
+$second.pageid=456;$second.title='File:Sun in forest.jpg';$second.imageinfo[0].sha1='second'
+$prefetchFolder=Join-Path $folder 'prefetch';New-Item -ItemType Directory $prefetchFolder|Out-Null
+$script:prefetchPages=@($page,$second)
+function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
+ if($OutFile){$script:downloads++;[Motivation.Renderer]::GenerateBackground($OutFile,1920,1920,'Calm',1);return}
+ return @{query=@{pages=$script:prefetchPages}}
+}
+$script:downloads=0
+Save-NextCommonsBackground $prefetchFolder @() 1920 1920
+Save-NextCommonsBackground $prefetchFolder @() 1920 1920
+Assert ($script:downloads -eq 1 -and @(Get-ChildItem $prefetchFolder -Filter 'commons_*').Count -eq 1 -and @(Get-ChildItem $prefetchFolder -Filter '*.partial').Count -eq 0) 'Saving the next photo downloads one photo once and leaves no partial file'
+$saved=(Get-ChildItem $prefetchFolder -Filter 'commons_*').FullName
+$picks=@(1..8|ForEach-Object{Get-CommonsBackground $prefetchFolder @() 1920 1920});$used=$picks[0]
+Assert (@($picks|Where-Object{$_.path -ne $saved}).Count -eq 0 -and $script:downloads -eq 1) 'The next update uses the saved photo without downloading'
+Save-NextCommonsBackground $prefetchFolder @($used.id) 1920 1920
+Assert ($script:downloads -eq 2 -and @(Get-ChildItem $prefetchFolder -Filter 'commons_*').Count -eq 2) 'After that photo is used, the next unused photo is saved'
+function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
+ if($OutFile){Set-Content -LiteralPath $OutFile -Value 'half a jpeg';throw 'Simulated dropped connection.'}
+ return @{query=@{pages=$script:prefetchPages}}
+}
+$interruptedFolder=Join-Path $folder 'interrupted';New-Item -ItemType Directory $interruptedFolder|Out-Null
+$failed=$false;try{Save-NextCommonsBackground $interruptedFolder @() 1920 1920}catch{$failed=$true}
+Assert ($failed -and @(Get-ChildItem $interruptedFolder -Filter 'commons_*').Count -eq 0) 'An interrupted download leaves nothing that looks like a saved photo'
+$killedFolder=Join-Path $folder 'killed';New-Item -ItemType Directory $killedFolder|Out-Null
+$job=Start-Job -ArgumentList $PSScriptRoot,$killedFolder,($script:prefetchPages|ConvertTo-Json -Depth 10) -ScriptBlock {
+ param($Repo,$Folder,$PagesJson)
+ . (Join-Path $Repo 'SetMotivationWallpaper.ps1')
+ $script:pages=$PagesJson|ConvertFrom-Json
+ function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
+  if($OutFile){Set-Content -LiteralPath $OutFile -Value 'half a jpeg';Start-Sleep -Seconds 60;return}
+  return @{query=@{pages=$script:pages}}
+ }
+ Save-NextCommonsBackground $Folder @() 1920 1920
+}
+$deadline=(Get-Date).AddSeconds(60)
+while(!(Get-ChildItem $killedFolder -Filter 'commons_*') -and (Get-Date) -lt $deadline){Start-Sleep -Milliseconds 200}
+Stop-Job $job;Remove-Job $job -Force
+Assert (@(Get-ChildItem $killedFolder -Filter 'commons_*').Count -eq 1) 'The killed download left its file behind'
+function Invoke-Service($Uri,$Headers,$Body,$OutFile,$TimeoutSeconds,$Attempts){
+ if($OutFile){$script:downloads++;[Motivation.Renderer]::GenerateBackground($OutFile,1920,1920,'Calm',1);return}
+ return @{query=@{pages=$script:prefetchPages}}
+}
+$before=$script:downloads
+Save-NextCommonsBackground $killedFolder @() 1920 1920
+Assert ($script:downloads -eq $before+1) 'A download killed partway is not mistaken for a saved photo'
+$DataDirectory=$folder;Remove-Variable BackgroundSource;$BackgroundSource=''
+Assert ((Get-RunBackgroundSource) -eq 'Commons') 'Runs without a saved or explicit source use Commons'
+Set-WallpaperBackgroundSource $folder 'Generated'
+Assert ((Get-RunBackgroundSource) -eq 'Generated') 'Runs without an explicit source use the saved setting'
+$BackgroundSource='Commons'
+Assert ((Get-RunBackgroundSource) -eq 'Commons') 'Explicit source overrides the saved setting for one run'
+$Automatic=$true
 $fallback=Get-Background $folder @($photo.id) 1920 1920 'Calm and reflective'
 Assert ($fallback.source -eq 'Generated' -and (Test-Path $fallback.path)) 'Exhausted photo collection produces original background'
 function Invoke-Service {throw 'Simulated network outage.'}

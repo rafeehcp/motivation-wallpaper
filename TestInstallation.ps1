@@ -7,6 +7,11 @@ $testRoot=Join-Path $env:TEMP ('MotivationInstallTests-'+[guid]::NewGuid().ToStr
 $script:testDesktop=Join-Path $testRoot 'Desktop'
 New-Item -ItemType Directory -Path $script:testDesktop -Force|Out-Null
 function Get-WallpaperDesktopPath {return $script:testDesktop}
+$script:testStartMenu=Join-Path $testRoot 'Start Menu'
+New-Item -ItemType Directory -Path $script:testStartMenu -Force|Out-Null
+function Get-WallpaperStartMenuPath {return $script:testStartMenu}
+$script:savedSource=''
+function Set-WallpaperBackgroundSource($Folder,$BackgroundSource){$script:savedSource=$BackgroundSource}
 $script:credentialCalls=0;$script:savedMode='Basic'
 function Set-WallpaperCredentials {$script:credentialCalls++}
 function Get-WallpaperQuoteScreening {return $script:savedMode}
@@ -18,21 +23,30 @@ function Assert($Condition,$Message){if(!$Condition){throw "FAIL: $Message"};Wri
 $InstallDirectory=[IO.Path]::GetFullPath((Join-Path $testRoot ('App with spaces '+[char]0x00e9))).TrimEnd('\');$NoSchedule=$true;$CredentialsOnly=$false
 Install-MotivationWallpaper
 $launcher=Join-Path $script:testDesktop 'Change Wallpaper.cmd'
-Assert ((Test-Path $launcher) -and $script:schedules -eq 0) 'Manual-only installation creates launcher without scheduling'
-$text=[IO.File]::ReadAllText($launcher)
-Assert ($text.Contains('-File "'+(Join-Path $InstallDirectory 'SetMotivationWallpaper.ps1')+'"') -and $text.Contains('if errorlevel 1 (')) 'Launcher quotes paths and pauses only on error'
-Assert ($text.Contains([string][char]0x00e9) -and $text.Contains('chcp 65001 >nul')) 'Launcher preserves Unicode installation paths'
-Assert ($text.Contains('-BackgroundSource Commons') -and (Test-Path (Join-Path $InstallDirectory 'commons-backgrounds.json'))) 'Installation includes Commons collection and launcher source choice'
-Assert ((Test-Path (Join-Path $InstallDirectory 'WallpaperStorage.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'WallpaperPreferences.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1')) -and $text.Contains('goto settings')) 'Installation includes cleanup and saved credit configuration'
-$fixtureScript=Join-Path $InstallDirectory 'SetMotivationWallpaper.ps1'
-@("'ok' | Set-Content (Join-Path `$PSScriptRoot 'launcher-result.txt')",'exit 0')|Set-Content -LiteralPath $fixtureScript -Encoding ASCII
-& $env:ComSpec /d /c ('"'+$launcher+'"')
-Assert ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $InstallDirectory 'launcher-result.txt'))) 'Real launcher executes successfully with spaces and Unicode and exits without a pause'
-$fixtureSettings=Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1'
+Assert (!(Test-Path $launcher) -and $script:schedules -eq 0) 'Manual-only installation creates no Change Wallpaper.cmd and no schedule'
+Assert (!$script:savedSource -and (Test-Path (Join-Path $InstallDirectory 'commons-backgrounds.json'))) 'Installation includes Commons collection and leaves background source to saved settings'
+$settingsScript=Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1'
+$shortcuts=@((Join-Path $script:testDesktop 'Wallpaper Settings.lnk'),(Join-Path $script:testStartMenu 'Motivation Wallpaper Settings.lnk'))
+Assert (@($shortcuts|Where-Object{(Test-Path -LiteralPath $_) -and (Test-WallpaperShortcutOwner $_ $settingsScript)}).Count -eq 2) 'Desktop and Start menu settings shortcuts open the installed settings window'
+Assert ((Test-Path (Join-Path $InstallDirectory 'WallpaperStorage.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'WallpaperPreferences.ps1')) -and (Test-Path $settingsScript)) 'Installation includes cleanup and saved settings configuration'
+$fixtureSettings=$settingsScript
 @("'ok' | Set-Content (Join-Path `$PSScriptRoot 'settings-result.txt')",'exit 0')|Set-Content -LiteralPath $fixtureSettings -Encoding ASCII
-Remove-Item -LiteralPath (Join-Path $InstallDirectory 'launcher-result.txt')
-& $env:ComSpec /d /c ('"'+$launcher+'" settings')
-Assert ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $InstallDirectory 'settings-result.txt')) -and !(Test-Path (Join-Path $InstallDirectory 'launcher-result.txt'))) 'Launcher settings argument opens configuration without changing wallpaper'
+# A GUI-subsystem launcher (PE subsystem 2) never opens a console window of its own.
+$settingsLauncher=Join-Path $InstallDirectory 'MotivationWallpaperSettings.exe'
+$bytes=[IO.File]::ReadAllBytes($settingsLauncher);$subsystem=[BitConverter]::ToUInt16($bytes,[BitConverter]::ToInt32($bytes,0x3C)+0x5C)
+$appIcon=Join-Path $InstallDirectory 'MotivationWallpaper.ico'
+Add-Type -AssemblyName PresentationCore,System.Drawing
+$frames=[Windows.Media.Imaging.BitmapDecoder]::Create([Uri]$appIcon,[Windows.Media.Imaging.BitmapCreateOptions]::None,[Windows.Media.Imaging.BitmapCacheOption]::OnLoad).Frames
+Assert (@($frames|ForEach-Object{$_.PixelWidth}) -contains 256 -and @($frames|ForEach-Object{$_.PixelWidth}) -contains 16 -and @($shortcuts|Where-Object{(New-Object -ComObject WScript.Shell).CreateShortcut($_).IconLocation -eq "$appIcon,0"}).Count -eq 2) 'Setup draws a multi-size app icon that both shortcuts use'
+$small=(New-Object Drawing.Icon($appIcon,16,16)).ToBitmap().GetPixel(8,3)
+Assert ($small.B -gt $small.R+80) 'Small icon sizes decode as images in System.Drawing, not raw bytes'
+# The sky at the top of the icon is blue; the default executable icon is not.
+$top=[Drawing.Icon]::ExtractAssociatedIcon((Join-Path $InstallDirectory 'MotivationWallpaperSettings.exe')).ToBitmap().GetPixel(16,6)
+Assert ($top.B -gt $top.R+80) 'The settings launcher carries the app icon'
+Assert ($subsystem -eq 2 -and @($shortcuts|Where-Object{$link=(New-Object -ComObject WScript.Shell).CreateShortcut($_);$link.TargetPath -eq $settingsLauncher -and !$link.Arguments}).Count -eq 2) 'Settings shortcuts run the windowless launcher'
+Start-Process -FilePath $settingsLauncher -Wait
+$deadline=(Get-Date).AddSeconds(15);while(!(Test-Path (Join-Path $InstallDirectory 'settings-result.txt')) -and (Get-Date) -lt $deadline){Start-Sleep -Milliseconds 200}
+Assert (Test-Path (Join-Path $InstallDirectory 'settings-result.txt')) 'Windowless launcher starts the installed settings script from a Unicode path'
 Install-MotivationWallpaper
 Assert ($script:schedules -eq 0 -and $script:credentialCalls -eq 0) 'Repeated Basic setup never requests credentials'
 $QuoteScreening='Jev';Install-MotivationWallpaper
@@ -42,26 +56,48 @@ Assert ($script:credentialCalls -eq 2) 'Setup preserves saved Jev selection'
 $QuoteScreening='Basic';Install-MotivationWallpaper
 Assert ($script:credentialCalls -eq 2 -and $script:savedMode -eq 'Basic') 'Explicit Basic setup skips credentials and persists selection'
 Remove-Variable QuoteScreening;$QuoteScreening=''
+$BackgroundSource='Generated';Install-MotivationWallpaper
+Assert ($script:savedSource -eq 'Generated') 'Explicit setup background source is saved as a setting'
+Remove-Variable BackgroundSource;$BackgroundSource=''
 $NoSchedule=$false;Install-MotivationWallpaper
 Assert ($script:schedules -eq 1) 'Scheduled setup requests task registration'
 $NoSchedule=$true;Install-MotivationWallpaper
 $manifestPath=Join-Path $InstallDirectory 'installation.json'
 $manifest=Get-Content $manifestPath -Raw|ConvertFrom-Json
 Assert ($manifest.taskName -eq 'MotivationWallpaper') 'Manual-only rerun retains ownership of previous schedule'
+$oldLauncher=@('@echo off','rem MotivationWallpaper managed launcher',('powershell.exe -File "'+(Join-Path $InstallDirectory 'SetMotivationWallpaper.ps1')+'"'))
+$oldLauncher|Set-Content -LiteralPath $launcher -Encoding UTF8
+$manifest|Add-Member NoteProperty launcher $launcher -Force;$manifest|ConvertTo-Json -Depth 4|Set-Content $manifestPath
+Install-MotivationWallpaper
+Assert (!(Test-Path $launcher) -and !((Get-Content $manifestPath -Raw|ConvertFrom-Json).PSObject.Properties['launcher'])) 'Upgrade removes the managed Change Wallpaper.cmd from earlier releases'
+'Unrelated launcher'|Set-Content $launcher
+$manifest=Get-Content $manifestPath -Raw|ConvertFrom-Json
+$manifest|Add-Member NoteProperty launcher $launcher -Force;$manifest|ConvertTo-Json -Depth 4|Set-Content $manifestPath
+Install-MotivationWallpaper
+Assert ((Get-Content $launcher) -eq 'Unrelated launcher') 'Upgrade leaves a recorded but unrelated Change Wallpaper.cmd alone'
+$oldLauncher|Set-Content -LiteralPath $launcher -Encoding UTF8
+$manifest=Get-Content $manifestPath -Raw|ConvertFrom-Json
+$manifest|Add-Member NoteProperty launcher $launcher -Force;$manifest|ConvertTo-Json -Depth 4|Set-Content $manifestPath
 # Reject path traversal in an edited manifest before removing anything.
 $manifest.files+=@('..\outside.txt');$manifest|ConvertTo-Json -Depth 4|Set-Content $manifestPath
 $rejected=$false;try{Uninstall-MotivationWallpaper}catch{$rejected=$_.Exception.Message -like '*Invalid installation file list*'}
-Assert ($rejected -and (Test-Path $launcher) -and $script:removed -eq 0) 'Invalid uninstall manifest preserves installation and task'
+Assert ($rejected -and (Test-Path $launcher) -and (Test-Path $manifestPath) -and $script:removed -eq 0) 'Invalid uninstall manifest preserves installation and task'
 $manifest.files=@($manifest.files|Where-Object{$_ -ne '..\outside.txt'});$manifest|ConvertTo-Json -Depth 4|Set-Content $manifestPath
 $retained=Join-Path $InstallDirectory 'personal-file.txt';'Keep me'|Set-Content $retained
 Uninstall-MotivationWallpaper
-Assert ((Test-Path $retained) -and !(Test-Path $launcher) -and $script:removed -eq 1) 'Uninstall removes managed files and schedule but retains unrelated files'
+Assert ((Test-Path $retained) -and !(Test-Path $launcher) -and !(Test-Path $appIcon) -and $script:removed -eq 1) 'Uninstall removes managed files, an earlier-release launcher, and the schedule but retains unrelated files'
+Assert (@($shortcuts|Where-Object{Test-Path -LiteralPath $_}).Count -eq 0) 'Uninstall removes both settings shortcuts'
+$InstallDirectory=Join-Path $testRoot 'OtherApp'
+New-WallpaperShortcut $shortcuts[1] (Join-Path $testRoot 'Elsewhere')
+$rejected=$false;try{Install-MotivationWallpaper}catch{$rejected=$_.Exception.Message -like '*shortcut belongs*'}
+Assert ($rejected -and !(Test-Path $InstallDirectory)) 'Setup refuses an unrelated settings shortcut before writing files'
+Remove-Item -LiteralPath $shortcuts[1]
 $InstallDirectory=Join-Path $testRoot 'Unmanaged';New-Item -ItemType Directory $InstallDirectory|Out-Null
 $rejected=$false;try{Install-MotivationWallpaper}catch{$rejected=$_.Exception.Message -like '*not managed*'}
 Assert $rejected 'Setup refuses an unmanaged directory'
 $InstallDirectory=Join-Path $testRoot 'NewApp';'Unrelated launcher'|Set-Content $launcher
-$rejected=$false;try{Install-MotivationWallpaper}catch{$rejected=$_.Exception.Message -like '*launcher belongs*'}
-Assert ($rejected -and !(Test-Path $InstallDirectory)) 'Setup refuses an unrelated desktop launcher before writing files'
+Install-MotivationWallpaper|Out-Null
+Assert ((Test-Path (Join-Path $InstallDirectory 'installation.json')) -and (Get-Content $launcher) -eq 'Unrelated launcher') 'A fresh install ignores an unrelated Change Wallpaper.cmd'
 # Exercise the actual task helpers with cmdlet mocks; never touch Task Scheduler.
 Set-Item Function:Register-WallpaperTask $registerImplementation
 Set-Item Function:Remove-WallpaperTask $removeImplementation

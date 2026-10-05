@@ -1,4 +1,17 @@
-﻿# v0.1.3
+﻿# v0.1.4
+
+- Fix the one-command install. `irm ... | iex` stopped before downloading because Windows PowerShell rejected the installer's empty `-QuoteScreening` option when the script ran through `iex`. A test now runs the installer text through `Invoke-Expression`.
+- Add Wallpaper Settings, a window that previews the current wallpaper and has switches for Photos or Generated backgrounds and Basic or Jev screening, a credits toggle, **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Choices save immediately. Choosing Jev without a key asks for one; cancelling keeps Basic.
+- Open Wallpaper Settings from the desktop or the Start menu. A small launcher compiled at install time starts it without a console window. New wallpaper and Swap also run without a console and report errors in the window.
+- Add an app icon, a quotation mark over hills, drawn at install time for the launcher, shortcuts, and window.
+- The background source is now a saved setting. The scheduled task no longer passes `-BackgroundSource`; the option still overrides a single run.
+- Swap with previous records the wallpapers it replaces, so swapping again returns to them. A failed swap puts the current wallpapers back.
+- Remove `Change Wallpaper.cmd`. Upgrades delete this app's launcher and leave any other file with that name alone.
+- After each successful update, download the next unused Commons photo so the following update can use it without waiting. Downloads use a temporary name until complete, and use the 1920-pixel thumbnail when it covers every monitor.
+
+Rerun the installer to upgrade; it replaces the scheduled task and removes `Change Wallpaper.cmd`.
+
+# v0.1.3
 
 - Add a one-command Windows PowerShell installer using a version-pinned release ZIP and embedded SHA-256 verification. No administrator access is required.
 - Basic quote checks are now the default; no TypeSafe key is needed in this mode.

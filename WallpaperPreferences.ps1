@@ -55,3 +55,44 @@ function Set-WallpaperShowCredits([string]$Folder,[bool]$ShowCredits) {
 function Set-WallpaperQuoteScreening([string]$Folder,[ValidateSet('Basic','Jev')][string]$QuoteScreening) {
  Set-WallpaperPreferences $Folder @{quoteScreening=$QuoteScreening}
 }
+function Get-WallpaperBackgroundSource([string]$Folder) {
+ $path=Join-Path $Folder 'settings.json'
+ if(!(Test-Path -LiteralPath $path)){return 'Commons'}
+ try {
+  $settings=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -ErrorAction Stop
+  if($settings -isnot [pscustomobject]){return 'Commons'}
+  $property=$settings.PSObject.Properties['backgroundSource']
+  if($null -ne $property -and $property.Value -is [string] -and $property.Value -in @('Commons','Generated')){return [string]$property.Value}
+ }catch{}
+ return 'Commons'
+}
+function Set-WallpaperBackgroundSource([string]$Folder,[ValidateSet('Commons','Generated')][string]$BackgroundSource) {
+ Set-WallpaperPreferences $Folder @{backgroundSource=$BackgroundSource}
+}
+function Set-WallpaperCredentials {
+ Add-Type -AssemblyName System.Windows.Forms
+ $names=@('TYPESAFE_API_KEY')
+ foreach($name in $names) {
+  if([Environment]::GetEnvironmentVariable($name,'User')){continue}
+  $form=New-Object Windows.Forms.Form
+  try {
+   $form.Text="Motivation Wallpaper - $name";$form.Width=520;$form.Height=200;$form.StartPosition='CenterScreen'
+   $label=New-Object Windows.Forms.Label;$label.Text="Enter $name. Saved in your Windows user environment.";$label.SetBounds(20,20,460,40);$form.Controls.Add($label)
+   $box=New-Object Windows.Forms.TextBox;$box.UseSystemPasswordChar=$true;$box.SetBounds(20,65,460,25);$form.Controls.Add($box)
+   $save=New-Object Windows.Forms.Button;$save.Text='Save key';$save.SetBounds(360,105,120,30);$save.DialogResult=[Windows.Forms.DialogResult]::OK;$form.Controls.Add($save);$form.AcceptButton=$save
+   if($form.ShowDialog() -ne [Windows.Forms.DialogResult]::OK){throw 'Credential setup cancelled.'}
+   $value=$box.Text.Trim();if(!$value){throw "No $name entered."}
+   [Environment]::SetEnvironmentVariable($name,$value,'User');$box.Clear();$value=$null
+  }finally{$form.Dispose()}
+ }
+}
+# Settings shortcuts are owned by an installation when they run its settings launcher.
+# Earlier development builds ran the settings script through powershell.exe instead.
+function Test-WallpaperShortcutOwner([string]$Path,[string]$SettingsPath) {
+ $shell=New-Object -ComObject WScript.Shell
+ try {
+  $link=$shell.CreateShortcut($Path)
+  $launcher=Join-Path ([IO.Path]::GetDirectoryName($SettingsPath)) 'MotivationWallpaperSettings.exe'
+  return [string]::Equals([string]$link.TargetPath,$launcher,[StringComparison]::OrdinalIgnoreCase) -or ([string]$link.Arguments).Contains('-File "'+$SettingsPath+'"')
+ }finally{[Runtime.InteropServices.Marshal]::ReleaseComObject($shell)|Out-Null}
+}

@@ -37,26 +37,26 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SetupMotivationWallpap
 
 Basic mode is the default and setup does not request an API key. With `-QuoteScreening Jev`, setup requests a missing `TYPESAFE_API_KEY` through a masked dialog. It is saved in your Windows user environment; this is **not an encrypted credential vault**. An existing user key is reused. Do not put keys in issues, screenshots, logs, or source files.
 
-Setup installs into `%LOCALAPPDATA%\MotivationWallpaper`, creates **Change Wallpaper.cmd** on your desktop, and registers a task for 09:00 local time plus sign-in catch-up. Automatic runs update once per calendar day; manual changes can run any time. Setup does not change your current wallpaper.
+Setup installs into `%LOCALAPPDATA%\MotivationWallpaper`, creates a **Wallpaper Settings** shortcut on your desktop, adds **Motivation Wallpaper Settings** to the Start menu, and registers a task for 09:00 local time plus sign-in catch-up. Automatic runs update once per calendar day; manual changes can run any time. Setup does not change your current wallpaper.
 
-Use `-QuoteScreening Basic` or `-QuoteScreening Jev` to choose and save a mode during setup. Without that option, setup preserves the saved selection, defaulting to Basic. Use `-NoSchedule` for manual-only installation. On repeated setup, this option retains any existing managed schedule. Use `-CredentialsOnly` to configure missing keys without installing files. `-InstallDirectory` selects another directory, but only one managed desktop launcher and scheduled task are supported per user.
+Use `-QuoteScreening Basic` or `-QuoteScreening Jev` to choose and save a mode during setup. Without that option, setup preserves the saved selection, defaulting to Basic. Use `-NoSchedule` for manual-only installation. On repeated setup, this option retains any existing managed schedule. Use `-CredentialsOnly` to configure missing keys without installing files. `-InstallDirectory` selects another directory, but only one managed set of settings shortcuts and one scheduled task are supported per user.
 
-Setup accepts `-BackgroundSource Commons` (default) or `Generated`; it writes this choice into the desktop launcher and scheduled task. Direct main-script runs use Commons unless you pass the option explicitly. With `-NoSchedule`, any existing task keeps its previous source choice.
+Setup accepts `-BackgroundSource Commons` or `Generated` and saves it as the background setting. Without that option, setup keeps the saved setting, which defaults to Commons. Installations from v0.1.3 or earlier pass `-BackgroundSource Commons` in their scheduled task, which overrides the setting; rerun the installer to replace that task.
 
-Setup refuses an existing directory or launcher belonging to another installation. Older personal versions are not automatically migrated. Preserve their data and remove or relocate their launcher before installing this release. If task registration is denied by your Windows policy, use `-NoSchedule` or contact your administrator; do not run the wallpaper task as administrator.
+Setup refuses an existing directory or settings shortcut belonging to another installation. Upgrading from v0.1.3 or earlier removes that release's **Change Wallpaper.cmd** from the desktop; Wallpaper Settings replaces it. Older personal versions are not automatically migrated. Preserve their data and move their install folder before installing this release. If task registration is denied by your Windows policy, use `-NoSchedule` or contact your administrator; do not run the wallpaper task as administrator.
 
 ## Use
 
-Double-click **Change Wallpaper.cmd**. The window closes on success and stays open on failure.
+Open **Wallpaper Settings** and click **New wallpaper**. The update runs in the background; the window shows the new wallpaper when it finishes, or the error message if it fails.
 
 ```powershell
 $app = Join-Path $env:LOCALAPPDATA 'MotivationWallpaper'
 & "$app\SetMotivationWallpaper.ps1"                       # Change wallpaper
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly          # Live preview, uses APIs
 & "$app\SetMotivationWallpaper.ps1" -PreviewOnly -Demo    # Offline layout preview
-& "$app\SetMotivationWallpaper.ps1" -BackgroundSource Generated # Live quote, offline background
-& "$app\ConfigureMotivationWallpaper.ps1"                # Configure credits and screening
-& "$app\RestoreMotivationWallpaper.ps1"                  # Restore previous wallpapers
+& "$app\SetMotivationWallpaper.ps1" -BackgroundSource Generated # One run with an offline background
+& "$app\ConfigureMotivationWallpaper.ps1"                # Open Wallpaper Settings
+& "$app\RestoreMotivationWallpaper.ps1"                  # Swap with previous wallpapers
 & "$app\UninstallMotivationWallpaper.ps1"                # Remove installation and schedule
 ```
 
@@ -64,20 +64,29 @@ Previews print the output folder; open its `preview.html`. Demo text is a synthe
 
 ## Wallpaper settings
 
-Run `ConfigureMotivationWallpaper.ps1` to open a checkbox for showing source credits on wallpapers. Credits are visible by default; the saved setting applies to future wallpapers. The desktop launcher also opens settings when run with the `settings` argument.
+Open **Wallpaper Settings** from the desktop or the Start menu. It has three saved settings:
+
+- **Show source credits on wallpapers.** On by default.
+- **Background.** Wikimedia Commons photos (default) or generated artwork, which needs no network.
+- **Quote screening.** Basic checks (default) or Jev screening. Choosing Jev without a saved key asks for one; cancelling leaves every setting unchanged.
+
+Each choice saves as soon as you make it and applies to future wallpapers. The window previews the first monitor's current wallpaper and has **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Swapping puts the previous wallpapers back and records the ones it replaced, so swapping again returns to the newer wallpapers.
+The same settings can be saved without the window:
 
 ```powershell
 & "$app\ConfigureMotivationWallpaper.ps1" -HideCredits
 & "$app\ConfigureMotivationWallpaper.ps1" -ShowCredits
+& "$app\ConfigureMotivationWallpaper.ps1" -BackgroundSource Generated
+& "$app\ConfigureMotivationWallpaper.ps1" -QuoteScreening Jev
 ```
 
 Settings are saved in the wallpaper data folder's `settings.json`. A custom `-DataDirectory` must match the directory used for wallpaper updates. Source and license links remain in HTML previews; the offline demo retains its unscreened-layout label.
 
 ## How it works
 
-Quotes come from ZenQuotes, with DummyJSON as an additional collection when needed. **Basic checks** are the default: quote text must be 15?230 characters, the author must be 1?70 characters, and empty text, control characters, markup, URLs in quote text, and recent repeats are rejected. Theme keywords prioritize candidates; if none match, another valid unused quote is selected. These checks do not judge meaning or verify author attribution.
+Quotes come from ZenQuotes, with DummyJSON as an additional collection when needed. **Basic checks** are the default: quote text must be 15 to 230 characters, the author must be 1 to 70 characters, and empty text, control characters, markup, URLs in quote text, and recent repeats are rejected. Theme keywords prioritize candidates; if none match, another valid unused quote is selected. These checks do not judge meaning or verify author attribution.
 
-Choose **Basic checks** or **Jev screening** in Wallpaper Settings (`Change Wallpaper.cmd settings`). You can also save a choice with `ConfigureMotivationWallpaper.ps1 -QuoteScreening Basic` or `-QuoteScreening Jev`. The main script accepts the same option as a one-run override; manual and scheduled runs otherwise use the saved setting. Changes apply to future wallpapers. Jev keys can be configured later using setup `-CredentialsOnly`.
+Choose **Basic checks** or **Jev screening** in Wallpaper Settings. You can also save a choice with `ConfigureMotivationWallpaper.ps1 -QuoteScreening Basic` or `-QuoteScreening Jev`. The main script accepts the same option as a one-run override; manual and scheduled runs otherwise use the saved setting. Changes apply to future wallpapers. Jev keys can be configured later using setup `-CredentialsOnly`.
 
 In Jev mode, Jev scores clarity, constructive motivation, and theme fit. Every dimension requires a score of at least 3 on the API's 0-4 scale and at least 80% combined probability on its two highest levels. This is model judgment; quote accuracy and author attribution are not independently verified.
 
@@ -85,7 +94,7 @@ In Jev mode, quotes are evaluated in batches of ten. Approved unused quotes are 
 
 Commons backgrounds come from 37 manually reviewed CC0 nature photos. Runtime metadata must still identify the image as CC0 and provide its CC0 deed URL; other licenses and unreviewed files are excluded. Metadata is cached for 24 hours, and downloads are sized to support connected screens. Source and license links appear in previews, with photographer credits on the rendered wallpaper. Review records are in [commons-backgrounds.json](commons-backgrounds.json).
 
-The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. `-BackgroundSource Generated` bypasses Commons entirely; Jev is used only when Jev screening is selected.
+The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. The Generated background setting, or `-BackgroundSource Generated` for one run, bypasses Commons entirely; Jev is used only when Jev screening is selected.
 
 The same quote and background appear on every monitor, cropped and typeset at each monitor's native resolution. Segoe UI, Bahnschrift, and Georgia are selected by theme with a Segoe UI fallback. Dark overlays, minimum font sizes, and left-side icon space support readability.
 
@@ -102,8 +111,8 @@ Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file
 - **Missing key in Jev mode:** run setup with `-CredentialsOnly`. To replace a saved key, remove that user environment variable in Windows settings, then rerun setup.
 - **No quote passed quality checks:** the wallpaper is preserved. Check the log; try later when quote caches refresh. Do not lower the quality threshold to hide a provider failure.
 - **Slow update:** first runs may need several evaluation batches. Subsequent runs use cached evaluations, but network speed and provider limits still matter.
-- **Already updated today:** automatic runs skip after a successful update. Use the desktop launcher for another manual change.
-- **Restore unavailable:** a previous state is recorded only when an update is applied. Missing original image files cannot be restored.
+- **Already updated today:** automatic runs skip after a successful update. Use **New wallpaper** in Wallpaper Settings for another manual change.
+- **Restore unavailable:** a previous state is recorded only when an update is applied. Missing original image files cannot be restored. A failed swap puts the current wallpapers back and keeps the recorded state.
 - **Fonts or portrait layout:** render tests cover landscape, portrait, and scaled-display dimensions. Font appearance can vary across Windows versions.
 
 ## Development

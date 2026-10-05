@@ -57,3 +57,16 @@ Publish only the reviewed Commons/generated source snapshot. Keep earlier develo
 - The complete release ZIP installed all 12 payload files into an isolated standard-user fixture without a key prompt or elevation. Installed file hashes matched the release sources; desktop launcher was scoped to the fixture and scheduling disabled.
 - Bootstrap rejects checksum mismatches and missing setup scripts, forwards supported options, propagates failures, and cleans its own temporary extraction.
 - The published download and latest-release command must be verified after release publication.
+
+## v0.1.4 validation
+
+- All eight offline Windows PowerShell 5.1 suites passed locally, including new settings-window, launcher, icon, swap, background-setting, and next-photo coverage.
+- The `irm | iex` failure was reproduced against the v0.1.3 installer text and passes after the fix.
+- The release ZIP passed through the real bootstrap with a local download: checksum verified, all 12 payload files installed with matching hashes into an isolated fixture, the launcher and icon were generated, and both shortcuts were created in fixture folders without a key prompt or schedule.
+- Upgrading the personal v0.1.3 installation re-registered the task without `-BackgroundSource`, created both shortcuts, and removed its `Change Wallpaper.cmd`.
+- The settings launcher opens no console window; `powershell.exe -WindowStyle Hidden` creates one, which caused the earlier flash.
+- The opened settings window was rendered off-screen with real wallpaper data; button and segment label colors were measured for contrast.
+- The icon decodes at every size in System.Drawing and WPF, and appears on the launcher, shortcuts, and window.
+- Live Commons next-photo download in a temporary folder: 1920 thumbnail for landscape-only coverage, 3840 when a portrait monitor needs the height, no partial files, and the next update used the saved photo without downloading.
+
+Remaining: clicking New wallpaper and Swap with previous on a real desktop, and Windows CI on the pushed branch. The published download and latest-release command must be verified after release publication.

@@ -1,13 +1,14 @@
 [CmdletBinding()]
-param([string]$InstallDirectory="$env:LOCALAPPDATA\MotivationWallpaper",[switch]$NoSchedule,[ValidateSet('Commons','Generated')][string]$BackgroundSource='Commons',[ValidateSet('Basic','Jev')][string]$QuoteScreening)
+param([string]$InstallDirectory="$env:LOCALAPPDATA\MotivationWallpaper",[switch]$NoSchedule,[ValidateSet('','Commons','Generated')][string]$BackgroundSource,[ValidateSet('','Basic','Jev')][string]$QuoteScreening)
 $ErrorActionPreference='Stop'
 
 function Get-WallpaperInstallPackage {
- return @{version='0.1.3';url='https://github.com/rafeehcp/motivation-wallpaper/releases/download/v0.1.3/motivation-wallpaper-v0.1.3.zip';sha256='DE94E63A0AB398B19D9D6065A9CBF2A4D2A0A527A34ED4B38A2FFFEBBA11BD0C'}
+ return @{version='0.1.4';url='https://github.com/rafeehcp/motivation-wallpaper/releases/download/v0.1.4/motivation-wallpaper-v0.1.4.zip';sha256='8FD15455E420717DFD8D6F66C18716ABB187733D97A189B10E6AC44C50EBC2D6'}
 }
 function Invoke-WallpaperReleaseSetup([string]$Path,[hashtable]$Options) {
- $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Path,'-InstallDirectory',$Options.InstallDirectory,'-BackgroundSource',$Options.BackgroundSource)
+ $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Path,'-InstallDirectory',$Options.InstallDirectory)
  if($Options.NoSchedule){$arguments+='-NoSchedule'}
+ if($Options.BackgroundSource){$arguments+=@('-BackgroundSource',$Options.BackgroundSource)}
  if($Options.QuoteScreening){$arguments+=@('-QuoteScreening',$Options.QuoteScreening)}
  & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" @arguments
  if($LASTEXITCODE -ne 0){throw "Wallpaper setup failed (exit $LASTEXITCODE)."}
