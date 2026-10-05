@@ -55,6 +55,9 @@ try {
  $window=New-WallpaperSettingsWindow $testRoot $appIcon;$ui=$script:settingsUi
  Assert ($null -ne $window.Icon) 'Settings window uses the installed app icon'
  Assert ($ui.Generated.IsChecked -and $ui.Jev.IsChecked -and $ui.Credits.IsChecked -and [IO.File]::ReadAllText($path) -ceq $saved) 'Settings window shows saved values without writing settings'
+ Assert ($ui.Update.Visibility -eq 'Collapsed' -and !$ui.ContainsKey('Latest')) 'Settings window starts without an update button or release request'
+ $height=$window.Content.Height;Show-SettingsUpdate '0.1.5'
+ Assert ($ui.Update.Visibility -eq 'Visible' -and $ui.UpdateLabel.Text -eq 'Update to v0.1.5' -and $window.Content.Height -gt $height) 'A newer release shows its update button and grows the window to fit'
  $ui.Photos.IsChecked=$true;$ui.Credits.IsChecked=$false
  Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Commons' -and !(Get-WallpaperShowCredits $testRoot)) 'Window choices save immediately'
  $script:messages=@()
@@ -72,7 +75,27 @@ try {
  $failure="C:\App\SetMotivationWallpaper.ps1 : No quote passed quality checks. Wallpaper preserved.`r`n    + CategoryInfo          : NotSpecified"
  Assert ((Get-SettingsActionMessage $failure 'Using basic quote checks.') -eq 'No quote passed quality checks. Wallpaper preserved.') 'Background action errors show the script message'
  Assert ((Get-SettingsActionMessage '' "Using basic quote checks.`r`nAnother run is active; skipped.`r`n") -eq 'Another run is active; skipped.') 'Background actions without errors show their last output line'
- $window.Close()
+ function Start-Process($FilePath,$ArgumentList){$script:launch=@{file=$FilePath;arguments=$ArgumentList}}
+ $script:closed=$false;$window.add_Closed({$script:closed=$true});$ui.Installation=[pscustomobject]@{taskName=''}
+ $ui.Update.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Button]::ClickEvent)))
+ $command=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(($script:launch.arguments -split ' ')[-1]))
+ Assert ((Test-Path -LiteralPath $script:launch.file -PathType Leaf) -and $command -eq (Get-WallpaperUpdateCommand $PSScriptRoot $true) -and $script:closed) 'Update click opens a console running the update command and closes the window'
+ Remove-Item Function:\Start-Process
+ Assert ((Get-WallpaperUpdateVersion '0.1.4' 'v0.1.5') -eq '0.1.5') 'A newer release tag is offered as an update'
+ Assert ((Get-WallpaperUpdateVersion '0.1.4' '0.2') -eq '0.2') 'Release tags without a v prefix are compared'
+ foreach($tag in 'v0.1.4','v0.1.3','latest',''){Assert ((Get-WallpaperUpdateVersion '0.1.4' $tag) -eq '') "Release tag '$tag' offers no update"}
+ Assert ((Get-WallpaperUpdateVersion '' 'v0.1.5') -eq '') 'An unknown installed version offers no update'
+ $directory=Join-Path $testRoot "O'Brien Apps\Motivation Wallpaper";$record=Join-Path $testRoot 'update.json';$started=Join-Path $testRoot 'started.txt'
+ foreach($noSchedule in $true,$false) {
+  Remove-Item -LiteralPath $record,$started -ErrorAction SilentlyContinue
+  # Stubbing the cmdlet name also captures irm, an alias that would outrank a function named irm.
+  $stubs="function Invoke-RestMethod(`$Uri){`"param([string]```$InstallDirectory,[switch]```$NoSchedule)@{uri='`$Uri';directory=```$InstallDirectory;noSchedule=[bool]```$NoSchedule}|ConvertTo-Json|Set-Content -LiteralPath '$record'`"}`nfunction Start-Process(`$FilePath){Set-Content -LiteralPath '$started' -Value `$FilePath}`n"
+  $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($stubs+(Get-WallpaperUpdateCommand $directory $noSchedule)))
+  & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded|Out-Null
+  $run=Get-Content -LiteralPath $record -Raw|ConvertFrom-Json
+  Assert ($run.uri -eq 'https://github.com/rafeehcp/motivation-wallpaper/releases/latest/download/Install.ps1' -and $run.directory -eq $directory -and $run.noSchedule -eq $noSchedule) "Update command reinstalls into the same quoted directory with NoSchedule $noSchedule"
+  Assert ((Get-Content -LiteralPath $started -Raw).Trim() -eq (Join-Path $directory 'MotivationWallpaperSettings.exe')) 'Update command reopens Wallpaper Settings after setup'
+ }
 }finally {
  $resolved=[IO.Path]::GetFullPath($testRoot)
  $temporaryRoot=[IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')+'\'

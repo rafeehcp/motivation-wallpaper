@@ -70,7 +70,7 @@ Open **Wallpaper Settings** from the desktop or the Start menu. It has three sav
 - **Background.** Wikimedia Commons photos (default) or generated artwork, which needs no network.
 - **Quote screening.** Basic checks (default) or Jev screening. Choosing Jev without a saved key asks for one; cancelling leaves every setting unchanged.
 
-Each choice saves as soon as you make it and applies to future wallpapers. The window previews the first monitor's current wallpaper and has **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Swapping puts the previous wallpapers back and records the ones it replaced, so swapping again returns to the newer wallpapers.
+Each choice saves as soon as you make it and applies to future wallpapers. The window previews the first monitor's current wallpaper and has **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Swapping puts the previous wallpapers back and records the ones it replaced, so swapping again returns to the newer wallpapers. When a newer release exists, the window also offers to update to it.
 The same settings can be saved without the window:
 
 ```powershell
@@ -104,7 +104,7 @@ Service failures or exhausted quality checks preserve the current wallpaper. App
 
 Data lives in `%USERPROFILE%\Pictures\MotivationalWallpapers`: quote and assessment caches, `commons-metadata.json`, the last 30 successful quote/background IDs, original backgrounds, rendered images, previous wallpaper paths, and `wallpaper.log`. `-DataDirectory` overrides the main script's directory; restore currently uses the default directory.
 
-Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file metadata requests and image downloads when selected. Generated backgrounds require no image service. There is no project telemetry. Preview metadata contains local monitor identifiers and paths; share only reviewed output. After a successful update or preview, cleanup removes recognized run folders and unused source images older than 30 days. It always retains the newest 30 runs, current wallpaper files, restore files, and backgrounds needed by retained runs. Unrelated files, caches, settings, and history are preserved; links and unreadable metadata are skipped conservatively.
+Quote text and the evaluation rubric are sent to TypeSafe. Commons receives file metadata requests and image downloads when selected. Generated backgrounds require no image service. Opening Wallpaper Settings asks GitHub for the latest release version. There is no project telemetry. Preview metadata contains local monitor identifiers and paths; share only reviewed output. After a successful update or preview, cleanup removes recognized run folders and unused source images older than 30 days. It always retains the newest 30 runs, current wallpaper files, restore files, and backgrounds needed by retained runs. Unrelated files, caches, settings, and history are preserved; links and unreadable metadata are skipped conservatively.
 
 ## Troubleshooting
 

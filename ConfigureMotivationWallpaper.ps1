@@ -104,6 +104,7 @@ $script:settingsXaml=@'
   <DockPanel Grid.Column="1" Margin="0,24,24,20">
    <TextBlock DockPanel.Dock="Top" Text="Wallpaper Settings" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20"/>
    <TextBlock x:Name="Status" DockPanel.Dock="Bottom" FontSize="12" Foreground="{StaticResource Secondary}" TextWrapping="Wrap" Margin="2,12,0,0"/>
+   <Button x:Name="Update" DockPanel.Dock="Bottom" Style="{StaticResource Primary}" Visibility="Collapsed" Margin="0,12,0,0"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="{StaticResource Icons}" Text="&#xE896;" Margin="0,2,10,0"/><TextBlock x:Name="UpdateLabel"/></StackPanel></Button>
    <StackPanel>
     <TextBlock Text="BACKGROUND" FontSize="11" Foreground="{StaticResource Secondary}" Margin="0,0,0,6"/>
     <Border Background="#E6E6E6" CornerRadius="8" Padding="3"><UniformGrid Columns="2">
@@ -195,12 +196,52 @@ function Start-SettingsAction([string]$ScriptPath,[string]$Arguments,[string]$Bu
  })
  $ui.Timer.Start()
 }
+function Get-WallpaperUpdateVersion([string]$Installed,[string]$Tag) {
+ $current=$Installed -as [version];$latest=($Tag -replace '^v','') -as [version]
+ if($current -and $latest -and $latest -gt $current){return $latest.ToString()}
+ return ''
+}
+# The release installer upgrades in place but defaults its options, so the console passes this install's choices back.
+function Get-WallpaperUpdateCommand([string]$Directory,[bool]$NoSchedule) {
+ $path=$Directory -replace "'","''";$schedule=if($NoSchedule){' -NoSchedule'}else{''}
+ return @"
+[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+try{& ([scriptblock]::Create((irm 'https://github.com/rafeehcp/motivation-wallpaper/releases/latest/download/Install.ps1'))) -InstallDirectory '$path'$schedule;Start-Process '$path\MotivationWallpaperSettings.exe'}
+catch{Write-Host `$_ -ForegroundColor Red;Read-Host 'Press Enter to close'}
+"@
+}
+function Show-SettingsUpdate([string]$Version) {
+ $ui=$script:settingsUi;$ui.UpdateLabel.Text="Update to v$Version"
+ if($ui.Update.Visibility -eq 'Visible'){return}
+ # The settings column has no spare height, so the window grows by the button instead of clipping the actions.
+ $ui.Update.Visibility='Visible';$ui.Update.Measure([Windows.Size]::new([double]::PositiveInfinity,[double]::PositiveInfinity))
+ $ui.Window.Content.Height+=$ui.Update.DesiredSize.Height
+}
+# Asks GitHub for the latest release without blocking the window. Any failure leaves the button hidden.
+function Start-SettingsUpdateCheck {
+ $ui=$script:settingsUi
+ try {
+  $ui.Installation=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'installation.json') -Raw|ConvertFrom-Json
+  [Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+  $client=New-Object Net.WebClient;$client.Headers.Add('User-Agent','MotivationWallpaper')
+  $ui.Latest=$client.DownloadStringTaskAsync('https://api.github.com/repos/rafeehcp/motivation-wallpaper/releases/latest')
+ }catch{return}
+ $ui.UpdateTimer=New-Object Windows.Threading.DispatcherTimer
+ $ui.UpdateTimer.Interval=[TimeSpan]::FromMilliseconds(500)
+ $ui.UpdateTimer.add_Tick({
+  $ui=$script:settingsUi
+  if(!$ui.Latest.IsCompleted){return}
+  $ui.UpdateTimer.Stop()
+  try{$version=Get-WallpaperUpdateVersion $ui.Installation.version ($ui.Latest.Result|ConvertFrom-Json).tag_name;if($version){Show-SettingsUpdate $version}}catch{}
+ })
+ $ui.UpdateTimer.Start()
+}
 function New-WallpaperSettingsWindow([string]$Folder,[string]$Icon=(Join-Path $PSScriptRoot 'MotivationWallpaper.ico')) {
  Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
  $window=[Windows.Markup.XamlReader]::Parse($script:settingsXaml)
  # RestoreMotivationWallpaper.ps1 always reads the default data folder.
  $ui=@{Window=$window;DataDirectory=$Folder;CurrentPath='';RestoreState=(Join-Path $env:USERPROFILE 'Pictures\MotivationalWallpapers\previous-wallpapers.json')}
- foreach($name in 'Shot','Caption','Empty','Status','Photos','Generated','Basic','Jev','Credits','NewWallpaper','Swap','OpenFolder'){$ui[$name]=$window.FindName($name)}
+ foreach($name in 'Shot','Caption','Empty','Status','Photos','Generated','Basic','Jev','Credits','NewWallpaper','Swap','OpenFolder','Update','UpdateLabel'){$ui[$name]=$window.FindName($name)}
  $script:settingsUi=$ui
  # Show saved values before wiring handlers, so loading never writes settings.
  $ui.Photos.IsChecked=(Get-WallpaperBackgroundSource $Folder) -eq 'Commons';$ui.Generated.IsChecked=!$ui.Photos.IsChecked
@@ -227,10 +268,15 @@ function New-WallpaperSettingsWindow([string]$Folder,[string]$Icon=(Join-Path $P
   New-Item -ItemType Directory -Path $script:settingsUi.DataDirectory -Force|Out-Null
   Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('"'+$script:settingsUi.DataDirectory+'"')
  })
+ $ui.Update.add_Click({
+  $command=Get-WallpaperUpdateCommand $PSScriptRoot (!$script:settingsUi.Installation.taskName)
+  Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -EncodedCommand '+[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command)))
+  $script:settingsUi.Window.Close()
+ })
  # Setup draws the icon next to this script. OnLoad reads it now, so the file is never left locked.
  if(Test-Path -LiteralPath $Icon){$window.Icon=[Windows.Media.Imaging.BitmapFrame]::Create([Uri]$Icon,[Windows.Media.Imaging.BitmapCreateOptions]::None,[Windows.Media.Imaging.BitmapCacheOption]::OnLoad)}
  # Loading the desktop interface compiles C#, so it waits until the window is visible.
- $window.add_ContentRendered({Update-SettingsPreview})
+ $window.add_ContentRendered({Update-SettingsPreview;Start-SettingsUpdateCheck})
  return $window
 }
 
