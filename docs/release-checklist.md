@@ -69,4 +69,4 @@ Publish only the reviewed Commons/generated source snapshot. Keep earlier develo
 - The icon decodes at every size in System.Drawing and WPF, and appears on the launcher, shortcuts, and window.
 - Live Commons next-photo download in a temporary folder: 1920 thumbnail for landscape-only coverage, 3840 when a portrait monitor needs the height, no partial files, and the next update used the saved photo without downloading.
 
-Remaining: clicking New wallpaper and Swap with previous on a real desktop, and Windows CI on the pushed branch. The published download and latest-release command must be verified after release publication.
+Windows CI passed all eight suites on the release branch, whose runner uses an 8.3 short TEMP path. Remaining: clicking New wallpaper and Swap with previous on a real desktop. The published download and latest-release command must be verified after release publication.
