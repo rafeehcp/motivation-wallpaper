@@ -1,4 +1,11 @@
-﻿# v0.1.4
+﻿# v0.1.5
+
+- Wallpaper Settings checks GitHub for a newer release when it opens. If one exists, an **Update to v…** button appears. Clicking it closes the window and runs the installer in a visible console. The update keeps the install folder and any `-NoSchedule` choice, then reopens Wallpaper Settings. On failure the console shows the error and waits. If the check fails, for example when offline, the window shows nothing.
+- The window grows by the button's height only while an update is offered.
+
+Installations of v0.1.4 or earlier have no update check. Rerun the installer once to upgrade; later releases are offered in the window.
+
+# v0.1.4
 
 - Fix the one-command install. `irm ... | iex` stopped before downloading because Windows PowerShell rejected the installer's empty `-QuoteScreening` option when the script ran through `iex`. A test now runs the installer text through `Invoke-Expression`.
 - Add Wallpaper Settings, a window that previews the current wallpaper and has switches for Photos or Generated backgrounds and Basic or Jev screening, a credits toggle, **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Choices save immediately. Choosing Jev without a key asks for one; cancelling keeps Basic.

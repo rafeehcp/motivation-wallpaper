@@ -82,7 +82,7 @@ function Install-MotivationWallpaper {
  New-Item -ItemType Directory -Path $target -Force|Out-Null
  foreach($name in $payload){$source=Join-Path $PSScriptRoot $name;$destination=Join-Path $target $name;if([IO.Path]::GetFullPath($source) -ne $destination){Copy-Item -LiteralPath $source -Destination $destination -Force}}
  $null=New-WallpaperSettingsLauncher $target (New-WallpaperIcon $target)
- $manifest=@{product='MotivationWallpaper';version='0.1.4';directory=$target;shortcuts=$shortcuts;taskName='';files=@($payload)+@('MotivationWallpaperSettings.exe','MotivationWallpaper.ico')}
+ $manifest=@{product='MotivationWallpaper';version='0.1.5';directory=$target;shortcuts=$shortcuts;taskName='';files=@($payload)+@('MotivationWallpaperSettings.exe','MotivationWallpaper.ico')}
  if($prior){$manifest.taskName=$prior.taskName}
  $manifest|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifestPath -Encoding UTF8
  if(!$NoSchedule){Register-WallpaperTask $scriptPath $target;$manifest.taskName='MotivationWallpaper';$manifest|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $manifestPath -Encoding UTF8}
