@@ -70,3 +70,12 @@ Publish only the reviewed Commons/generated source snapshot. Keep earlier develo
 - Live Commons next-photo download in a temporary folder: 1920 thumbnail for landscape-only coverage, 3840 when a portrait monitor needs the height, no partial files, and the next update used the saved photo without downloading.
 
 Windows CI passed all eight suites on the release branch, whose runner uses an 8.3 short TEMP path. Remaining: clicking New wallpaper and Swap with previous on a real desktop. The published download and latest-release command must be verified after release publication.
+
+## v0.1.5 validation
+
+- All eight offline Windows PowerShell 5.1 suites passed locally, including new update-check coverage: version comparison, the update console command run in a child process with an apostrophe and space in the install path, `-NoSchedule` passed through, Wallpaper Settings reopened afterwards, and the button click starting that console without a network request when the window is built.
+- A live GitHub request from an installation recorded as 0.0.1 showed **Update to v0.1.4**. Without `installation.json`, no request was made.
+- While the window was open, every installed file could be opened for exclusive write, so setup can replace them during an update.
+- The release ZIP, built from the release commit's 12 payload files, passed through the real bootstrap with a local download: checksum verified, files installed with matching hashes into an isolated fixture, launcher and icon generated, both shortcuts created in fixture folders, and `installation.json` recorded 0.1.5 without a schedule.
+
+Remaining: clicking **Update** against a published release newer than the installation, and the offline and rate-limited paths, which leave the button hidden by code review only. The published download and latest-release command must be verified after release publication.
