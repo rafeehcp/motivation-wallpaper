@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$HideCredits,[switch]$ShowCredits,[ValidateSet('Basic','Jev')][string]$QuoteScreening,[ValidateSet('Commons','Generated')][string]$BackgroundSource,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers")
+param([switch]$HideCredits,[switch]$ShowCredits,[ValidateSet('Basic','Jev')][string]$QuoteScreening,[ValidateSet('Commons','Generated')][string]$BackgroundSource,[ValidateSet('Left','Center','Right')][string]$QuotePosition,[string]$DataDirectory="$env:USERPROFILE\Pictures\MotivationalWallpapers")
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WallpaperPreferences.ps1')
 
@@ -83,7 +83,7 @@ $script:settingsXaml=@'
    </Setter.Value></Setter>
   </Style>
  </Window.Resources>
- <Grid Width="760" Height="430">
+ <Grid Width="760" Height="508">
   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
   <Grid Margin="20">
    <Border CornerRadius="10" Background="#DCDCDC">
@@ -115,6 +115,12 @@ $script:settingsXaml=@'
     <Border Background="#E6E6E6" CornerRadius="8" Padding="3"><UniformGrid Columns="2">
      <RadioButton x:Name="Basic" GroupName="Screening" Style="{StaticResource Segment}" Content="Basic" ToolTip="Format checks only, no key required"/>
      <RadioButton x:Name="Jev" GroupName="Screening" Style="{StaticResource Segment}" Content="Jev" ToolTip="Needs a TypeSafe API key and may take longer"/>
+    </UniformGrid></Border>
+    <TextBlock Text="QUOTE POSITION" FontSize="11" Foreground="{StaticResource Secondary}" Margin="0,18,0,6"/>
+    <Border Background="#E6E6E6" CornerRadius="8" Padding="3" ToolTip="Keep the quote clear of your desktop icons"><UniformGrid Columns="3">
+     <RadioButton x:Name="PositionLeft" GroupName="Position" Style="{StaticResource Segment}" Content="Left"/>
+     <RadioButton x:Name="PositionCenter" GroupName="Position" Style="{StaticResource Segment}" Content="Center"/>
+     <RadioButton x:Name="PositionRight" GroupName="Position" Style="{StaticResource Segment}" Content="Right"/>
     </UniformGrid></Border>
     <DockPanel Margin="0,20,0,0">
      <CheckBox x:Name="Credits" Style="{StaticResource Toggle}" DockPanel.Dock="Right" VerticalAlignment="Center"/>
@@ -241,11 +247,12 @@ function New-WallpaperSettingsWindow([string]$Folder,[string]$Icon=(Join-Path $P
  $window=[Windows.Markup.XamlReader]::Parse($script:settingsXaml)
  # RestoreMotivationWallpaper.ps1 always reads the default data folder.
  $ui=@{Window=$window;DataDirectory=$Folder;CurrentPath='';RestoreState=(Join-Path $env:USERPROFILE 'Pictures\MotivationalWallpapers\previous-wallpapers.json')}
- foreach($name in 'Shot','Caption','Empty','Status','Photos','Generated','Basic','Jev','Credits','NewWallpaper','Swap','OpenFolder','Update','UpdateLabel'){$ui[$name]=$window.FindName($name)}
+ foreach($name in 'Shot','Caption','Empty','Status','Photos','Generated','Basic','Jev','PositionLeft','PositionCenter','PositionRight','Credits','NewWallpaper','Swap','OpenFolder','Update','UpdateLabel'){$ui[$name]=$window.FindName($name)}
  $script:settingsUi=$ui
  # Show saved values before wiring handlers, so loading never writes settings.
  $ui.Photos.IsChecked=(Get-WallpaperBackgroundSource $Folder) -eq 'Commons';$ui.Generated.IsChecked=!$ui.Photos.IsChecked
  $ui.Jev.IsChecked=(Get-WallpaperQuoteScreening $Folder) -eq 'Jev';$ui.Basic.IsChecked=!$ui.Jev.IsChecked
+ $ui['Position'+(Get-WallpaperQuotePosition $Folder)].IsChecked=$true
  $ui.Credits.IsChecked=Get-WallpaperShowCredits $Folder
  $ui.Swap.IsEnabled=Test-Path -LiteralPath $ui.RestoreState
  $ui.Photos.add_Checked({Save-SettingsChange @{backgroundSource='Commons'}})
@@ -256,6 +263,9 @@ function New-WallpaperSettingsWindow([string]$Folder,[string]$Icon=(Join-Path $P
   catch{$script:settingsUi.Basic.IsChecked=$true;Show-SettingsMessage 'Jev screening needs a TypeSafe API key. Quote screening stays on Basic.';return}
   Save-SettingsChange @{quoteScreening='Jev'}
  })
+ $ui.PositionLeft.add_Checked({Save-SettingsChange @{quotePosition='Left'}})
+ $ui.PositionCenter.add_Checked({Save-SettingsChange @{quotePosition='Center'}})
+ $ui.PositionRight.add_Checked({Save-SettingsChange @{quotePosition='Right'}})
  $ui.Credits.add_Checked({Save-SettingsChange @{showCredits=$true}})
  $ui.Credits.add_Unchecked({Save-SettingsChange @{showCredits=$false}})
  $ui.NewWallpaper.add_Click({
@@ -282,11 +292,12 @@ function New-WallpaperSettingsWindow([string]$Folder,[string]$Icon=(Join-Path $P
 
 function Configure-MotivationWallpaper {
  if($HideCredits -and $ShowCredits){throw 'Choose either -HideCredits or -ShowCredits, not both.'}
- if($HideCredits -or $ShowCredits -or $QuoteScreening -or $BackgroundSource) {
+ if($HideCredits -or $ShowCredits -or $QuoteScreening -or $BackgroundSource -or $QuotePosition) {
   $updates=@{}
   if($HideCredits -or $ShowCredits){$updates.showCredits=[bool]$ShowCredits}
   if($QuoteScreening){$updates.quoteScreening=$QuoteScreening}
   if($BackgroundSource){$updates.backgroundSource=$BackgroundSource}
+  if($QuotePosition){$updates.quotePosition=$QuotePosition}
   Set-WallpaperPreferences $DataDirectory $updates
   Write-Output 'Wallpaper settings saved. Applies to future wallpapers.'
   return

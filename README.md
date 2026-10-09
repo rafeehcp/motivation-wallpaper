@@ -64,11 +64,12 @@ Previews print the output folder; open its `preview.html`. Demo text is a synthe
 
 ## Wallpaper settings
 
-Open **Wallpaper Settings** from the desktop or the Start menu. It has three saved settings:
+Open **Wallpaper Settings** from the desktop or the Start menu. It has four saved settings:
 
 - **Show source credits on wallpapers.** On by default.
 - **Background.** Wikimedia Commons photos (default) or generated artwork, which needs no network.
 - **Quote screening.** Basic checks (default) or Jev screening. Choosing Jev without a saved key asks for one; cancelling leaves every setting unchanged.
+- **Quote position.** Left, Center (default), or Right. On landscape screens Left and Right keep the quote in one half, so desktop icons on the other side don't cover it.
 
 Each choice saves as soon as you make it and applies to future wallpapers. The window previews the first monitor's current wallpaper and has **New wallpaper**, **Swap with previous**, and **Open wallpaper folder**. Swapping puts the previous wallpapers back and records the ones it replaced, so swapping again returns to the newer wallpapers. When a newer release exists, the window also offers to update to it.
 The same settings can be saved without the window:
@@ -78,6 +79,7 @@ The same settings can be saved without the window:
 & "$app\ConfigureMotivationWallpaper.ps1" -ShowCredits
 & "$app\ConfigureMotivationWallpaper.ps1" -BackgroundSource Generated
 & "$app\ConfigureMotivationWallpaper.ps1" -QuoteScreening Jev
+& "$app\ConfigureMotivationWallpaper.ps1" -QuotePosition Right
 ```
 
 Settings are saved in the wallpaper data folder's `settings.json`. A custom `-DataDirectory` must match the directory used for wallpaper updates. Source and license links remain in HTML previews; the offline demo retains its unscreened-layout label.

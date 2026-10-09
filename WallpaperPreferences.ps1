@@ -69,6 +69,20 @@ function Get-WallpaperBackgroundSource([string]$Folder) {
 function Set-WallpaperBackgroundSource([string]$Folder,[ValidateSet('Commons','Generated')][string]$BackgroundSource) {
  Set-WallpaperPreferences $Folder @{backgroundSource=$BackgroundSource}
 }
+function Get-WallpaperQuotePosition([string]$Folder) {
+ $path=Join-Path $Folder 'settings.json'
+ if(!(Test-Path -LiteralPath $path)){return 'Center'}
+ try {
+  $settings=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -ErrorAction Stop
+  if($settings -isnot [pscustomobject]){return 'Center'}
+  $property=$settings.PSObject.Properties['quotePosition']
+  if($null -ne $property -and $property.Value -is [string] -and $property.Value -in @('Left','Center','Right')){return [string]$property.Value}
+ }catch{}
+ return 'Center'
+}
+function Set-WallpaperQuotePosition([string]$Folder,[ValidateSet('Left','Center','Right')][string]$QuotePosition) {
+ Set-WallpaperPreferences $Folder @{quotePosition=$QuotePosition}
+}
 function Set-WallpaperCredentials {
  Add-Type -AssemblyName System.Windows.Forms
  $names=@('TYPESAFE_API_KEY')

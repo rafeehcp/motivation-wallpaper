@@ -159,6 +159,11 @@ namespace Motivation {
    return Render(background,output,width,height,quote,author,credit,"");
   }
   public static float Render(string background,string output,int width,int height,string quote,string author,string credit,string theme){
+   return Render(background,output,width,height,quote,author,credit,theme,"Center");
+  }
+  // Left and Right keep the other side clear for desktop icons. Center is the original layout.
+  public static float Render(string background,string output,int width,int height,string quote,string author,string credit,string theme,string position){
+   bool left=String.Equals(position,"Left",StringComparison.OrdinalIgnoreCase),right=String.Equals(position,"Right",StringComparison.OrdinalIgnoreCase);
    string familyName=FontForTheme(theme);
    FontStyle style=(theme??"").StartsWith("Bold",StringComparison.OrdinalIgnoreCase)?FontStyle.Bold:FontStyle.Regular;
    using(var family=new FontFamily(familyName)){if(!family.IsStyleAvailable(style))style=FontStyle.Regular;}
@@ -168,15 +173,18 @@ namespace Motivation {
     // White source pixels become <=90; white text has >7:1 contrast.
     using(var shade=new SolidBrush(Color.FromArgb(165,0,0,0)))g.FillRectangle(shade,0,0,width,height);
     float unit=Math.Min(width,height),x=width*.24f,boxWidth=width*.67f,size=unit*.049f,minimum=unit*.034f;
+    // Portrait screens are too narrow for a half-width box.
+    if(left||right){boxWidth=width<height?width*.67f:width*.50f;x=left?width*.06f:width*.94f-boxWidth;}
     Font font=null;SizeF measured=SizeF.Empty;
     using(var format=new StringFormat(StringFormat.GenericTypographic)){
      format.FormatFlags=StringFormatFlags.LineLimit;
+     if(right)format.Alignment=StringAlignment.Far;
      string wrapped=quote;
      for(;size>=minimum;size-=1f){if(font!=null)font.Dispose();font=new Font(familyName,size,style,GraphicsUnit.Pixel);wrapped=Balance(g,quote,font,boxWidth);measured=g.MeasureString(wrapped,font,new SizeF(boxWidth,10000),format);bool fits=measured.Height<=height*.40f;foreach(string word in quote.Split(' '))if(g.MeasureString(word,font).Width>boxWidth)fits=false;if(fits)break;}
      if(size<minimum){if(font!=null)font.Dispose();throw new InvalidOperationException("Quote is too long for a readable layout.");}
      using(font)using(var authorFont=new Font("Segoe UI",unit*.021f,FontStyle.Regular,GraphicsUnit.Pixel)){
       var authorSize=g.MeasureString(author,authorFont,new SizeF(boxWidth,10000),format);float gap=unit*.035f,total=measured.Height+gap+authorSize.Height;if(total>height*.65f)throw new InvalidOperationException("Quote and author do not fit.");float y=(height-total)*.49f;
-      using(var accent=new SolidBrush(Color.FromArgb(204,220,205)))g.FillRectangle(accent,x,y-unit*.043f,unit*.055f,3);
+      using(var accent=new SolidBrush(Color.FromArgb(204,220,205)))g.FillRectangle(accent,right?x+boxWidth-unit*.055f:x,y-unit*.043f,unit*.055f,3);
       g.DrawString(wrapped,font,Brushes.White,new RectangleF(x,y,boxWidth,measured.Height+5),format);g.DrawString(author,authorFont,Brushes.White,new RectangleF(x,y+measured.Height+gap,boxWidth,authorSize.Height+5),format);
      }
     }

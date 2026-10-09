@@ -78,4 +78,7 @@ Windows CI passed all eight suites on the release branch, whose runner uses an 8
 - While the window was open, every installed file could be opened for exclusive write, so setup can replace them during an update.
 - The release ZIP, built from the release commit's 12 payload files, passed through the real bootstrap with a local download: checksum verified, files installed with matching hashes into an isolated fixture, launcher and icon generated, both shortcuts created in fixture folders, and `installation.json` recorded 0.1.5 without a schedule.
 
+- Quote position: Center renders byte-identical to the previous layout. Left and Right were rendered at 1920x1080, 1080x1920, and 1536x864; a pixel scan confirmed the text stays on its side, and the images were reviewed. The settings window, re-measured with the new row, fits with the update button and status line visible.
+- The personal installation was upgraded from the working tree and recorded 0.1.5 with the task still registered.
+
 Remaining: clicking **Update** against a published release newer than the installation, and the offline and rate-limited paths, which leave the button hidden by code review only. The published download and latest-release command must be verified after release publication.

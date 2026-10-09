@@ -34,6 +34,27 @@ foreach($quote in $samples){foreach($dimensions in @(@(1920,1080),@(1080,1920),@
  $image=[Drawing.Image]::FromFile($output)
  try{Assert ($image.Width -eq $dimensions[0] -and $image.Height -eq $dimensions[1] -and $size -ge ([Math]::Min($dimensions[0],$dimensions[1])*.034)) "Readable render: sample $index"}finally{$image.Dispose()};$index++
 }}
+# Returns the leftmost and rightmost columns containing quote text (bright pixels above the credit line).
+function Get-TextColumns([string]$Path) {
+ $image=New-Object Drawing.Bitmap $Path
+ try {
+  $first=-1;$last=-1
+  for($x=0;$x -lt $image.Width;$x+=8){for($y=0;$y -lt $image.Height*.9;$y+=3){if($image.GetPixel($x,$y).R -gt 200){if($first -lt 0){$first=$x};$last=$x;break}}}
+  return @($first,$last)
+ }finally{$image.Dispose()}
+}
+$quote=$samples[2];$theme='Calm and reflective'
+$center=Join-Path $testFolder 'position_default.png';$null=[Motivation.Renderer]::Render('',$center,1920,1080,$quote,'Layout sample','',$theme)
+$explicit=Join-Path $testFolder 'position_center.png';$null=[Motivation.Renderer]::Render('',$explicit,1920,1080,$quote,'Layout sample','',$theme,'Center')
+Assert ((Get-FileHash $center).Hash -eq (Get-FileHash $explicit).Hash) 'Center position keeps the original layout'
+foreach($position in 'Left','Right'){foreach($dimensions in @(@(1920,1080),@(1080,1920),@(1536,864))){
+ $output=Join-Path $testFolder "position_$position`_$($dimensions[0]).png"
+ $size=[Motivation.Renderer]::Render('',$output,$dimensions[0],$dimensions[1],$quote,'Layout sample','',$theme,$position)
+ $columns=Get-TextColumns $output;$width=$dimensions[0]
+ $clear=if($position -eq 'Left'){$columns[1] -lt $width*.6 -and $columns[0] -lt $width*.1}else{$columns[0] -gt $width*.4 -and $columns[1] -gt $width*.9}
+ if($dimensions[0] -lt $dimensions[1]){$clear=if($position -eq 'Left'){$columns[0] -lt $width*.1}else{$columns[1] -gt $width*.9}}
+ Assert ($size -ge ([Math]::Min($dimensions[0],$dimensions[1])*.034) -and $clear) "$position position keeps the quote readable on its side at $($dimensions -join 'x')"
+}}
 $rejected=$false;try{[Motivation.Renderer]::Render('',(Join-Path $testFolder 'overflow.png'),1080,1920,('longword'*100),'Author','Test')}catch{$rejected=$true}
 Assert $rejected 'Oversized text is rejected instead of clipped'
 $originalService=${function:Invoke-Service}

@@ -157,7 +157,7 @@ function Invoke-Wallpaper {
  $lock=$null
  try {
   try{$lock=[IO.File]::Open((Join-Path $DataDirectory 'run.lock'),'OpenOrCreate','ReadWrite','None')}catch [IO.IOException]{Write-Output 'Another run is active; skipped.';return}
-  $showCredits=Get-WallpaperShowCredits $DataDirectory
+  $showCredits=Get-WallpaperShowCredits $DataDirectory;$quotePosition=Get-WallpaperQuotePosition $DataDirectory
   $historyPath=Join-Path $DataDirectory 'history.json';$history=@{entries=@();lastAutomaticDate='';sequence=0}
   if(Test-Path $historyPath){$history=Get-Content $historyPath -Raw|ConvertFrom-Json}
   $today=Get-Date -Format 'yyyy-MM-dd'
@@ -216,10 +216,10 @@ function Invoke-Wallpaper {
     $source=if($quote.PSObject.Properties['source']){$quote.source}else{'zenquotes.io'}
     $credit=if($Demo){'LAYOUT PREVIEW - NOT SCREENED BY JEV'}else{"Quotes: $source  |  $(Get-BackgroundCredit $background)"}
     if(!$showCredits -and !$Demo){$credit=''}
-    $size=[Motivation.Renderer]::Render($background.path,$path,$monitor.Width,$monitor.Height,[string]$quote.q,[string]$quote.a,$credit,$theme)
+    $size=[Motivation.Renderer]::Render($background.path,$path,$monitor.Width,$monitor.Height,[string]$quote.q,[string]$quote.a,$credit,$theme,$quotePosition)
     $outputs+=@{monitor=$monitor.Id;path=$path;width=$monitor.Width;height=$monitor.Height;fontPixels=$size};$index++
    }
-   Save-Json (Join-Path $runFolder 'details.json') @{quote=$quote;theme=$theme;font=[Motivation.Renderer]::FontForTheme($theme);assessment=$assessment;quoteScreening=$(if($Demo){'Demo'}else{$screening});background=$background;outputs=$outputs;demo=[bool]$Demo}
+   Save-Json (Join-Path $runFolder 'details.json') @{quote=$quote;theme=$theme;font=[Motivation.Renderer]::FontForTheme($theme);assessment=$assessment;quoteScreening=$(if($Demo){'Demo'}else{$screening});background=$background;quotePosition=$quotePosition;outputs=$outputs;demo=[bool]$Demo}
    $html='<!doctype html><meta charset="utf-8"><title>Wallpaper preview</title><style>body{background:#111;color:#eee;font:18px Segoe UI;padding:30px}img{max-width:90%;max-height:85vh;display:block;margin:25px 0}a{color:#9dd}</style><h1>Wallpaper preview</h1><p>'+[Net.WebUtility]::HtmlEncode($quote.q)+'</p><p>Inspirational quotes provided by <a href="https://zenquotes.io/">ZenQuotes API</a>.</p>'+(Get-BackgroundHtml $background)
    for($i=0;$i -lt $outputs.Count;$i++){$html+="<h2>Monitor $($i+1): $($outputs[$i].width) x $($outputs[$i].height)</h2><img src=`"monitor_$i.png`" alt=`"Wallpaper preview`">"}
    if($source -eq 'dummyjson.com'){$html=$html.Replace('https://zenquotes.io/','https://dummyjson.com/docs/quotes').Replace('ZenQuotes API','DummyJSON quote collection')}

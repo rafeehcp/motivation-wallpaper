@@ -15,6 +15,9 @@ try {
  Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Commons') 'Missing background source defaults to Commons'
  Set-WallpaperBackgroundSource $testRoot 'Generated'
  Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Generated' -and (Get-WallpaperQuoteScreening $testRoot) -eq 'Basic' -and !(Get-WallpaperShowCredits $testRoot)) 'Background source persists without changing other settings'
+ Assert ((Get-WallpaperQuotePosition $testRoot) -eq 'Center') 'Missing quote position keeps the original centered layout'
+ Set-WallpaperQuotePosition $testRoot 'Right'
+ Assert ((Get-WallpaperQuotePosition $testRoot) -eq 'Right' -and (Get-WallpaperBackgroundSource $testRoot) -eq 'Generated' -and !(Get-WallpaperShowCredits $testRoot)) 'Quote position persists without changing other settings'
  Remove-Item -LiteralPath $path
  Assert (Get-WallpaperShowCredits $testRoot) 'Missing settings show source credits by default'
  Set-WallpaperShowCredits $testRoot $false
@@ -30,6 +33,7 @@ try {
   [IO.File]::WriteAllText($path,$invalid)
   Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Basic') 'Invalid settings default to Basic screening'
   Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Commons') 'Invalid settings default to Commons backgrounds'
+  Assert ((Get-WallpaperQuotePosition $testRoot) -eq 'Center') 'Invalid settings default to the centered quote'
   Assert (Get-WallpaperShowCredits $testRoot) 'Invalid or absent Boolean preference keeps source credits visible'
  }
  $before=[IO.File]::ReadAllText($path);$rejected=$false
@@ -48,18 +52,20 @@ try {
  Assert ((Get-WallpaperQuoteScreening $testRoot) -eq 'Jev' -and (Get-WallpaperShowCredits $testRoot)) 'CLI screening choice preserves credits without a dialog'
  Remove-Variable QuoteScreening;$QuoteScreening='';$BackgroundSource='Generated';Configure-MotivationWallpaper|Out-Null
  Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Generated' -and (Get-WallpaperQuoteScreening $testRoot) -eq 'Jev') 'CLI background choice saves without a dialog and preserves screening'
+ Remove-Variable BackgroundSource;$BackgroundSource='';$QuotePosition='Left';Configure-MotivationWallpaper|Out-Null
+ Assert ((Get-WallpaperQuotePosition $testRoot) -eq 'Left' -and (Get-WallpaperBackgroundSource $testRoot) -eq 'Generated') 'CLI quote position saves without a dialog and preserves the background'
  # The window is built but never shown, so no desktop or credential dialog is needed.
  $saved=[IO.File]::ReadAllText($path)
  if(!('Motivation.AppIcon' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'MotivationWallpaper.cs') -ReferencedAssemblies System.Drawing}
  $appIcon=Join-Path $testRoot 'app.ico';[Motivation.AppIcon]::Save($appIcon)
  $window=New-WallpaperSettingsWindow $testRoot $appIcon;$ui=$script:settingsUi
  Assert ($null -ne $window.Icon) 'Settings window uses the installed app icon'
- Assert ($ui.Generated.IsChecked -and $ui.Jev.IsChecked -and $ui.Credits.IsChecked -and [IO.File]::ReadAllText($path) -ceq $saved) 'Settings window shows saved values without writing settings'
+ Assert ($ui.Generated.IsChecked -and $ui.Jev.IsChecked -and $ui.PositionLeft.IsChecked -and !$ui.PositionCenter.IsChecked -and $ui.Credits.IsChecked -and [IO.File]::ReadAllText($path) -ceq $saved) 'Settings window shows saved values without writing settings'
  Assert ($ui.Update.Visibility -eq 'Collapsed' -and !$ui.ContainsKey('Latest')) 'Settings window starts without an update button or release request'
  $height=$window.Content.Height;Show-SettingsUpdate '0.1.5'
  Assert ($ui.Update.Visibility -eq 'Visible' -and $ui.UpdateLabel.Text -eq 'Update to v0.1.5' -and $window.Content.Height -gt $height) 'A newer release shows its update button and grows the window to fit'
- $ui.Photos.IsChecked=$true;$ui.Credits.IsChecked=$false
- Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Commons' -and !(Get-WallpaperShowCredits $testRoot)) 'Window choices save immediately'
+ $ui.Photos.IsChecked=$true;$ui.Credits.IsChecked=$false;$ui.PositionRight.IsChecked=$true
+ Assert ((Get-WallpaperBackgroundSource $testRoot) -eq 'Commons' -and !(Get-WallpaperShowCredits $testRoot) -and (Get-WallpaperQuotePosition $testRoot) -eq 'Right') 'Window choices save immediately'
  $script:messages=@()
  function Show-SettingsMessage($Message){$script:messages+=$Message}
  function Set-WallpaperCredentials {throw 'Credential setup cancelled.'}

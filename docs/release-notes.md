@@ -2,6 +2,7 @@
 
 - Wallpaper Settings checks GitHub for a newer release when it opens. If one exists, an **Update to v…** button appears. Clicking it closes the window and runs the installer in a visible console. The update keeps the install folder and any `-NoSchedule` choice, then reopens Wallpaper Settings. On failure the console shows the error and waits. If the check fails, for example when offline, the window shows nothing.
 - The window grows by the button's height only while an update is offered.
+- Add a **Quote position** setting: Left, Center, or Right. On landscape screens, Left and Right keep the quote in one half so desktop icons on the other side don't cover it; Right also right-aligns the text. Center is the existing layout and stays the default. Save it from Wallpaper Settings or with `ConfigureMotivationWallpaper.ps1 -QuotePosition Left|Center|Right`.
 
 Installations of v0.1.4 or earlier have no update check. Rerun the installer once to upgrade; later releases are offered in the window.
 
