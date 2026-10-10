@@ -9,6 +9,9 @@ Assert (Test-BasicQuote $valid) 'Readable quote passes Basic checks'
 foreach($bad in @($null,[pscustomobject]@{q='Too short';a='Author'},[pscustomobject]@{q=('x'*231);a='Author'},[pscustomobject]@{q='This quote has no author.';a=' '},[pscustomobject]@{q="A quote with`ncontrol characters.";a='Author'},[pscustomobject]@{q='<b>Unwanted markup in text</b>';a='Author'},[pscustomobject]@{q='12345678901234567890';a='Author'},[pscustomobject]@{q='Visit https://example.com for more';a='Author'},[pscustomobject]@{q=@('Bad text','Bad text');a='Author'})) {
  Assert (!(Test-BasicQuote $bad)) 'Malformed candidate rejected'
 }
+Assert ((Repair-QuoteText "You Don'T Have To See The Whole Staircase, It'S Fine, I'M Here, We'Re Ready, You'Ll Win, I'D Go, They'Ve Won.") -eq "You Don't Have To See The Whole Staircase, It's Fine, I'm Here, We're Ready, You'll Win, I'd Go, They've Won.") 'Title-cased contractions repaired'
+Assert ((Repair-QuoteText "Ask O'Brien and D'Angelo") -eq "Ask O'Brien and D'Angelo") 'Apostrophe names untouched'
+Assert ((Repair-QuoteText 'Martin Luther King  Jr.') -eq 'Martin Luther King Jr.') 'Repeated spaces collapsed'
 $script:candidates=@($valid,[pscustomobject]@{q='A quiet moment offers perspective.';a='Fixture author'})
 $script:supplementCalls=0
 function Get-Key {throw 'Basic must never request credentials'}

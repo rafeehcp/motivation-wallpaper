@@ -115,12 +115,15 @@ function Get-BasicQuote($Folder,$Theme,$RecentIds) {
  }
  throw 'No unused quote passed basic checks. Wallpaper preserved.'
 }
+function Repair-QuoteText([string]$Text) {
+ return [regex]::Replace(($Text -replace '\s{2,}',' '),"(?<=\p{L}['’])(S|T|M|D|Re|Ve|Ll)\b",{param($m)$m.Value.ToLowerInvariant()})
+}
 function Get-Candidates($Folder,[switch]$Supplemental) {
  if($Supplemental){
   $path=Join-Path $Folder 'supplemental-quotes.json'
-  if((Test-Path $path) -and (Get-Item $path).LastWriteTime -gt (Get-Date).AddDays(-7)){return (Get-Content $path -Raw|ConvertFrom-Json)}
+  if((Test-Path $path) -and (Get-Item $path).LastWriteTime -gt (Get-Date).AddDays(-7)){return @((Get-Content $path -Raw|ConvertFrom-Json)|ForEach-Object{$_.q=Repair-QuoteText $_.q;$_.a=Repair-QuoteText $_.a;$_})}
   $response=Invoke-Service 'https://dummyjson.com/quotes?limit=0'
-  $quotes=@(foreach($item in $response.quotes){if($item.quote -and $item.author -and $item.quote.Length -ge 15 -and $item.quote.Length -le 230 -and $item.author.Length -le 70){[pscustomobject]@{q=[string]$item.quote;a=[string]$item.author;source='dummyjson.com'}}})
+  $quotes=@(foreach($item in $response.quotes){if($item.quote -and $item.author -and $item.quote.Length -ge 15 -and $item.quote.Length -le 230 -and $item.author.Length -le 70){[pscustomobject]@{q=(Repair-QuoteText $item.quote);a=(Repair-QuoteText $item.author);source='dummyjson.com'}}})
   if(!$quotes.Count){throw 'No supplemental quotes returned.'};Save-Json $path $quotes;return $quotes
  }
  $path=Join-Path $Folder 'quotes-cache.json'
