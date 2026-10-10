@@ -1,4 +1,9 @@
-﻿# v0.1.5
+﻿# v0.1.6
+
+- Fix capitalized letters after apostrophes in quotes from the DummyJSON fallback source, such as "Don'T" and "It'S". Its quotes arrive title-cased with these errors; contractions are now repaired and repeated spaces in quotes and author names collapsed, for example "Martin Luther King  Jr.". Names such as O'Brien are unchanged. Quotes remain title-cased as the source provides them.
+- The repair also applies to the saved copy of the DummyJSON list, so the fix takes effect without waiting for its weekly refresh.
+
+# v0.1.5
 
 - Wallpaper Settings checks GitHub for a newer release when it opens. If one exists, an **Update to v…** button appears. Clicking it closes the window and runs the installer in a visible console. The update keeps the install folder and any `-NoSchedule` choice, then reopens Wallpaper Settings. On failure the console shows the error and waits. If the check fails, for example when offline, the window shows nothing.
 - The window grows by the button's height only while an update is offered.
