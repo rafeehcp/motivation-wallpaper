@@ -1,4 +1,8 @@
-﻿# v0.1.6
+﻿# v0.1.7
+
+- Fix "Don'T" and similar capitalization still appearing with Jev screening. Jev first reuses quotes it approved earlier, and those skipped the v0.1.6 repair. The repair now runs on every quote just before it is drawn, whatever the screening mode or source.
+
+# v0.1.6
 
 - Fix capitalized letters after apostrophes in quotes from the DummyJSON fallback source, such as "Don'T" and "It'S". Its quotes arrive title-cased with these errors; contractions are now repaired and repeated spaces in quotes and author names collapsed, for example "Martin Luther King  Jr.". Names such as O'Brien are unchanged. Quotes remain title-cased as the source provides them.
 - The repair also applies to the saved copy of the DummyJSON list, so the fix takes effect without waiting for its weekly refresh.
