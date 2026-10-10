@@ -3,7 +3,7 @@ param([string]$InstallDirectory="$env:LOCALAPPDATA\MotivationWallpaper",[switch]
 $ErrorActionPreference='Stop'
 
 function Get-WallpaperInstallPackage {
- return @{version='0.1.6';url='https://github.com/rafeehcp/motivation-wallpaper/releases/download/v0.1.6/motivation-wallpaper-v0.1.6.zip';sha256='75F5CF554216B674BA6187FE7B83D2ACDC712813534F76040655CBCB2989A6FA'}
+ return @{version='0.1.7';url='https://github.com/rafeehcp/motivation-wallpaper/releases/download/v0.1.7/motivation-wallpaper-v0.1.7.zip';sha256='EC81E9923110152389B909F70A3D14E432416674C2B4E9A49EBF0B62533B28AD'}
 }
 function Invoke-WallpaperReleaseSetup([string]$Path,[hashtable]$Options) {
  $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Path,'-InstallDirectory',$Options.InstallDirectory)
