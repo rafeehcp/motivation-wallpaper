@@ -29,6 +29,8 @@ $settingsScript=Join-Path $InstallDirectory 'ConfigureMotivationWallpaper.ps1'
 $shortcuts=@((Join-Path $script:testDesktop 'Wallpaper Settings.lnk'),(Join-Path $script:testStartMenu 'Motivation Wallpaper Settings.lnk'))
 Assert (@($shortcuts|Where-Object{(Test-Path -LiteralPath $_) -and (Test-WallpaperShortcutOwner $_ $settingsScript)}).Count -eq 2) 'Desktop and Start menu settings shortcuts open the installed settings window'
 Assert ((Test-Path (Join-Path $InstallDirectory 'WallpaperStorage.ps1')) -and (Test-Path (Join-Path $InstallDirectory 'WallpaperPreferences.ps1')) -and (Test-Path $settingsScript)) 'Installation includes cleanup and saved settings configuration'
+$fontNames=@((Get-Content (Join-Path $InstallDirectory 'installation.json') -Raw|ConvertFrom-Json).files|Where-Object{$_ -like 'fonts\*'})
+Assert ($fontNames.Count -eq 15 -and @($fontNames|Where-Object{Test-Path (Join-Path $InstallDirectory $_)}).Count -eq 15) 'Installation includes the bundled fonts and their licenses'
 $fixtureSettings=$settingsScript
 @("'ok' | Set-Content (Join-Path `$PSScriptRoot 'settings-result.txt')",'exit 0')|Set-Content -LiteralPath $fixtureSettings -Encoding ASCII
 # A GUI-subsystem launcher (PE subsystem 2) never opens a console window of its own.
@@ -87,6 +89,7 @@ $retained=Join-Path $InstallDirectory 'personal-file.txt';'Keep me'|Set-Content 
 Uninstall-MotivationWallpaper
 Assert ((Test-Path $retained) -and !(Test-Path $launcher) -and !(Test-Path $appIcon) -and $script:removed -eq 1) 'Uninstall removes managed files, an earlier-release launcher, and the schedule but retains unrelated files'
 Assert (@($shortcuts|Where-Object{Test-Path -LiteralPath $_}).Count -eq 0) 'Uninstall removes both settings shortcuts'
+Assert (!(Test-Path (Join-Path $InstallDirectory 'fonts'))) 'Uninstall removes the bundled fonts folder'
 $InstallDirectory=Join-Path $testRoot 'OtherApp'
 New-WallpaperShortcut $shortcuts[1] (Join-Path $testRoot 'Elsewhere')
 $rejected=$false;try{Install-MotivationWallpaper}catch{$rejected=$_.Exception.Message -like '*shortcut belongs*'}

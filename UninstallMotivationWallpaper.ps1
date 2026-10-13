@@ -14,7 +14,7 @@ function Uninstall-MotivationWallpaper {
  if(!(Test-Path -LiteralPath $manifestPath)){throw 'No managed installation found.'}
  $manifest=Get-Content -LiteralPath $manifestPath -Raw|ConvertFrom-Json
  if($manifest.product -ne 'MotivationWallpaper' -or $manifest.directory -ne $target){throw 'Installation ownership does not match.'}
- $allowed=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE','MotivationWallpaperSettings.exe','MotivationWallpaper.ico')
+ $allowed=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE','MotivationWallpaperSettings.exe','MotivationWallpaper.ico','fonts\BebasNeue-Regular.ttf','fonts\Caveat-Regular.ttf','fonts\CormorantGaramond-Italic.ttf','fonts\CormorantGaramond-Regular.ttf','fonts\DancingScript-Regular.ttf','fonts\Lora-Italic.ttf','fonts\Lora-Regular.ttf','fonts\Oswald-Light.ttf','fonts\Oswald-SemiBold.ttf','fonts\OFL-BebasNeue.txt','fonts\OFL-Caveat.txt','fonts\OFL-CormorantGaramond.txt','fonts\OFL-DancingScript.txt','fonts\OFL-Lora.txt','fonts\OFL-Oswald.txt')
  foreach($name in $manifest.files){if($name -notin $allowed){throw 'Invalid installation file list; nothing removed.'}}
  if($manifest.taskName -and $manifest.taskName -ne 'MotivationWallpaper'){throw 'Invalid scheduled task name; nothing removed.'}
  $scriptPath=Join-Path $target 'SetMotivationWallpaper.ps1'
@@ -34,6 +34,8 @@ function Uninstall-MotivationWallpaper {
  foreach($shortcut in $shortcuts){if(Test-Path -LiteralPath $shortcut){Remove-Item -LiteralPath $shortcut}}
  foreach($name in $manifest.files){$file=Join-Path $target $name;if(Test-Path -LiteralPath $file){Remove-Item -LiteralPath $file}}
  Remove-Item -LiteralPath $manifestPath
+ $fonts=Join-Path $target 'fonts'
+ if((Test-Path -LiteralPath $fonts) -and @(Get-ChildItem -LiteralPath $fonts -Force).Count -eq 0){Remove-Item -LiteralPath $fonts}
  if(@(Get-ChildItem -LiteralPath $target -Force).Count -eq 0){Remove-Item -LiteralPath $target}
  Write-Output 'Uninstalled. Wallpapers, history, and user API keys retained. Current wallpaper stays in place.'
 }

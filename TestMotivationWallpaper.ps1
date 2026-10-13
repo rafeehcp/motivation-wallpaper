@@ -25,6 +25,15 @@ try{Assert ((Invoke-Wallpaper) -eq 'Another run is active; skipped.') 'Concurren
 $Demo=$true;$rejected=$false;try{Invoke-Wallpaper}catch{$rejected=$_.Exception.Message -match 'PreviewOnly'}
 Assert $rejected 'Demo cannot apply unscreened wallpaper'
 if(!('Motivation.Renderer' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'MotivationWallpaper.cs') -ReferencedAssemblies System.Drawing}
+$fonts=Join-Path $PSScriptRoot 'fonts'
+Assert ([Motivation.Renderer]::ChooseFonts('Calm and reflective','Breathe.').Quote -eq 'Georgia') 'Without bundled fonts the renderer keeps the system theme font'
+[Motivation.Renderer]::FontDirectory=$fonts
+$long='Success is not final and failure is not fatal; what counts in the end is the quiet courage to continue, to show up again tomorrow, and to keep doing the ordinary work.'
+Assert ([Motivation.Renderer]::ChooseFonts('Calm and reflective','Breathe.').Quote -eq 'Dancing Script') 'Short calm quote gets the cursive face'
+Assert ([Motivation.Renderer]::ChooseFonts('Calm and reflective',$long).Quote -eq 'Cormorant Garamond') 'Long calm quote gets the readable serif'
+Assert ([Motivation.Renderer]::ChooseFonts('Bold and ambitious',$long+' Never stop.').Quote -eq 'Bebas Neue') 'Mood words keep the expressive face for long quotes'
+Assert ([Motivation.Renderer]::ChooseFonts('Bold and ambitious',$long).Quote -eq 'Oswald SemiBold') 'Long bold quote gets the readable face'
+Assert ([Motivation.Renderer]::ChooseFonts('Grounded and practical','Keep going.').Author -eq 'Lora') 'Author line uses the theme companion font'
 $samples=@('Small steps, taken consistently, can carry you a long way.','Set a meaningful goal, then give it your full effort.','Make room for patience, reflection, and the things that matter most.')
 $index=0
 foreach($quote in $samples){foreach($dimensions in @(@(1920,1080),@(1080,1920),@(1536,864))){

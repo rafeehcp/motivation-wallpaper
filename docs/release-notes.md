@@ -1,4 +1,9 @@
-﻿# v0.1.7
+﻿# Unreleased
+
+- Wallpapers use bundled Google Fonts chosen by theme and quote. Short quotes, and quotes with the theme's mood words, get an expressive face: Dancing Script (Calm), Caveat (Grounded), or Bebas Neue (Bold). Longer quotes get a readable companion: Cormorant Garamond, Lora, or Oswald. The author line uses a matching font. `details.json` records the font each monitor used.
+- The fonts install into a `fonts` folder and are removed on uninstall. All are under the SIL Open Font License, included alongside them.
+
+# v0.1.7
 
 - Fix "Don'T" and similar capitalization still appearing with Jev screening. Jev first reuses quotes it approved earlier, and those skipped the v0.1.6 repair. The repair now runs on every quote just before it is drawn, whatever the screening mode or source.
 

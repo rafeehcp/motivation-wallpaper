@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 namespace Motivation {
  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
@@ -145,6 +147,39 @@ namespace Motivation {
    using(var installed=new InstalledFontCollection()){foreach(var family in installed.Families)if(family.Name==preferred)return preferred;}
    return "Segoe UI";
   }
+  public sealed class FontChoice {public string Quote,Fallback,Author;public FontStyle QuoteStyle,FallbackStyle,AuthorStyle;public float Scale=1f,FallbackScale=1f;}
+  public static string FontDirectory;
+  public static string LastFont;
+  static PrivateFontCollection bundled;static string bundledFrom;
+  // GDI+ finds private fonts only through the collection's FontFamily objects, never by name.
+  static FontFamily Bundled(string name){
+   if(bundledFrom!=FontDirectory){if(bundled!=null)bundled.Dispose();bundled=null;bundledFrom=FontDirectory;if(!String.IsNullOrEmpty(FontDirectory)&&Directory.Exists(FontDirectory)){bundled=new PrivateFontCollection();foreach(string file in Directory.GetFiles(FontDirectory,"*.ttf"))bundled.AddFontFile(file);}}
+   if(bundled!=null)foreach(var family in bundled.Families)if(family.Name==name)return family;
+   return null;
+  }
+  static Font MakeFont(string name,float size,FontStyle style){var family=Bundled(name);return family!=null?new Font(family,size,style,GraphicsUnit.Pixel):new Font(name,size,style,GraphicsUnit.Pixel);}
+  // Expressive faces suit short quotes and the theme's mood words; long quotes get the readable face.
+  public static FontChoice ChooseFonts(string theme,string quote){
+   theme=theme??"";quote=quote??"";
+   bool bold=theme.StartsWith("Bold",StringComparison.OrdinalIgnoreCase),calm=theme.StartsWith("Calm",StringComparison.OrdinalIgnoreCase);
+   FontChoice choice=bold?new FontChoice{Quote="Bebas Neue",Scale=1.1f,Fallback="Oswald SemiBold",Author="Oswald Light"}
+    :calm?new FontChoice{Quote="Dancing Script",Scale=1.2f,Fallback="Cormorant Garamond",FallbackStyle=FontStyle.Italic,FallbackScale=1.1f,Author="Cormorant Garamond"}
+    :new FontChoice{Quote="Caveat",Scale=1.25f,Fallback="Lora",Author="Lora",AuthorStyle=FontStyle.Italic};
+   if(Bundled(choice.Quote)==null||Bundled(choice.Fallback)==null||Bundled(choice.Author)==null){
+    string family=FontForTheme(theme);FontStyle style=bold?FontStyle.Bold:FontStyle.Regular;
+    using(var system=new FontFamily(family)){if(!system.IsStyleAvailable(style))style=FontStyle.Regular;}
+    return new FontChoice{Quote=family,QuoteStyle=style,Fallback=family,FallbackStyle=style,Author="Segoe UI"};
+   }
+   string mood=bold?"win|fight|never|now|rise|power":calm?"peace|heart|soul|breathe|gentle|love|hope":"home|small|today|step|grow|kind";
+   bool shortQuote=quote.Split(new[]{' '},StringSplitOptions.RemoveEmptyEntries).Length<=14&&quote.Length<=90;
+   if(!shortQuote&&!Regex.IsMatch(quote,@"\b("+mood+@")\b",RegexOptions.IgnoreCase)){choice.Quote=choice.Fallback;choice.QuoteStyle=choice.FallbackStyle;choice.Scale=choice.FallbackScale;}
+   return choice;
+  }
+  static Font Fit(Graphics g,string quote,string name,FontStyle style,float size,float minimum,float boxWidth,float maxHeight,StringFormat format,out string wrapped,out SizeF measured){
+   wrapped=quote;measured=SizeF.Empty;
+   for(;size>=minimum;size-=1f){var font=MakeFont(name,size,style);wrapped=Balance(g,quote,font,boxWidth);measured=g.MeasureString(wrapped,font,new SizeF(boxWidth,10000),format);bool fits=measured.Height<=maxHeight;foreach(string word in quote.Split(' '))if(g.MeasureString(word,font).Width>boxWidth)fits=false;if(fits)return font;font.Dispose();}
+   return null;
+  }
   static string Balance(Graphics g,string text,Font font,float maxWidth){
    string[] words=text.Split(new[]{' '},StringSplitOptions.RemoveEmptyEntries);string best=text;double bestCost=Double.MaxValue;int minLines=Int32.MaxValue;
    for(float width=maxWidth;width>=maxWidth*.60f;width-=maxWidth*.02f){
@@ -164,9 +199,7 @@ namespace Motivation {
   // Left and Right keep the other side clear for desktop icons. Center is the original layout.
   public static float Render(string background,string output,int width,int height,string quote,string author,string credit,string theme,string position){
    bool left=String.Equals(position,"Left",StringComparison.OrdinalIgnoreCase),right=String.Equals(position,"Right",StringComparison.OrdinalIgnoreCase);
-   string familyName=FontForTheme(theme);
-   FontStyle style=(theme??"").StartsWith("Bold",StringComparison.OrdinalIgnoreCase)?FontStyle.Bold:FontStyle.Regular;
-   using(var family=new FontFamily(familyName)){if(!family.IsStyleAvailable(style))style=FontStyle.Regular;}
+   FontChoice choice=ChooseFonts(theme,quote);
    using(var bitmap=new Bitmap(width,height))using(var g=Graphics.FromImage(bitmap)){
     g.Clear(Color.FromArgb(23,38,43));g.SmoothingMode=SmoothingMode.AntiAlias;g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.TextRenderingHint=TextRenderingHint.AntiAliasGridFit;
     if(!String.IsNullOrEmpty(background))using(var source=Image.FromFile(background)){float scale=Math.Max((float)width/source.Width,(float)height/source.Height);float w=source.Width*scale,h=source.Height*scale;g.DrawImage(source,new RectangleF((width-w)/2,(height-h)/2,w,h));}
@@ -175,14 +208,15 @@ namespace Motivation {
     float unit=Math.Min(width,height),x=width*.24f,boxWidth=width*.67f,size=unit*.049f,minimum=unit*.034f;
     // Portrait screens are too narrow for a half-width box.
     if(left||right){boxWidth=width<height?width*.67f:width*.50f;x=left?width*.06f:width*.94f-boxWidth;}
-    Font font=null;SizeF measured=SizeF.Empty;
+    string wrapped;SizeF measured;
     using(var format=new StringFormat(StringFormat.GenericTypographic)){
      format.FormatFlags=StringFormatFlags.LineLimit;
      if(right)format.Alignment=StringAlignment.Far;
-     string wrapped=quote;
-     for(;size>=minimum;size-=1f){if(font!=null)font.Dispose();font=new Font(familyName,size,style,GraphicsUnit.Pixel);wrapped=Balance(g,quote,font,boxWidth);measured=g.MeasureString(wrapped,font,new SizeF(boxWidth,10000),format);bool fits=measured.Height<=height*.40f;foreach(string word in quote.Split(' '))if(g.MeasureString(word,font).Width>boxWidth)fits=false;if(fits)break;}
-     if(size<minimum){if(font!=null)font.Dispose();throw new InvalidOperationException("Quote is too long for a readable layout.");}
-     using(font)using(var authorFont=new Font("Segoe UI",unit*.021f,FontStyle.Regular,GraphicsUnit.Pixel)){
+     Font font=Fit(g,quote,choice.Quote,choice.QuoteStyle,size*choice.Scale,minimum*choice.Scale,boxWidth,height*.40f,format,out wrapped,out measured);LastFont=choice.Quote;
+     if(font==null&&choice.Fallback!=choice.Quote){font=Fit(g,quote,choice.Fallback,choice.FallbackStyle,size*choice.FallbackScale,minimum*choice.FallbackScale,boxWidth,height*.40f,format,out wrapped,out measured);LastFont=choice.Fallback;}
+     if(font==null)throw new InvalidOperationException("Quote is too long for a readable layout.");
+     size=font.Size;
+     using(font)using(var authorFont=MakeFont(choice.Author,unit*.021f,choice.AuthorStyle)){
       var authorSize=g.MeasureString(author,authorFont,new SizeF(boxWidth,10000),format);float gap=unit*.035f,total=measured.Height+gap+authorSize.Height;if(total>height*.65f)throw new InvalidOperationException("Quote and author do not fit.");float y=(height-total)*.49f;
       using(var accent=new SolidBrush(Color.FromArgb(204,220,205)))g.FillRectangle(accent,right?x+boxWidth-unit*.055f:x,y-unit*.043f,unit*.055f,3);
       g.DrawString(wrapped,font,Brushes.White,new RectangleF(x,y,boxWidth,measured.Height+5),format);g.DrawString(author,authorFont,Brushes.White,new RectangleF(x,y+measured.Height+gap,boxWidth,authorSize.Height+5),format);

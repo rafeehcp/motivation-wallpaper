@@ -74,12 +74,12 @@ function Install-MotivationWallpaper {
  $settingsPath=Join-Path $target 'ConfigureMotivationWallpaper.ps1'
  $shortcuts=@((Join-Path (Get-WallpaperDesktopPath) 'Wallpaper Settings.lnk'),(Join-Path (Get-WallpaperStartMenuPath) 'Motivation Wallpaper Settings.lnk'))
  foreach($shortcut in $shortcuts){if((Test-Path -LiteralPath $shortcut) -and !(Test-WallpaperShortcutOwner $shortcut $settingsPath)){throw "Settings shortcut belongs to another installation: $shortcut"}}
- $payload=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE')
+ $payload=@('SetMotivationWallpaper.ps1','BackgroundProviders.ps1','WallpaperStorage.ps1','WallpaperPreferences.ps1','ConfigureMotivationWallpaper.ps1','commons-backgrounds.json','MotivationWallpaper.cs','RestoreMotivationWallpaper.ps1','SetupMotivationWallpaper.ps1','UninstallMotivationWallpaper.ps1','README.md','LICENSE','fonts\BebasNeue-Regular.ttf','fonts\Caveat-Regular.ttf','fonts\CormorantGaramond-Italic.ttf','fonts\CormorantGaramond-Regular.ttf','fonts\DancingScript-Regular.ttf','fonts\Lora-Italic.ttf','fonts\Lora-Regular.ttf','fonts\Oswald-Light.ttf','fonts\Oswald-SemiBold.ttf','fonts\OFL-BebasNeue.txt','fonts\OFL-Caveat.txt','fonts\OFL-CormorantGaramond.txt','fonts\OFL-DancingScript.txt','fonts\OFL-Lora.txt','fonts\OFL-Oswald.txt')
  foreach($name in $payload){if(!(Test-Path -LiteralPath (Join-Path $PSScriptRoot $name))){throw "Missing release file: $name"}}
  $dataFolder=Join-Path $env:USERPROFILE 'Pictures\MotivationalWallpapers'
  $screening=if($QuoteScreening){$QuoteScreening}else{Get-WallpaperQuoteScreening $dataFolder}
  if($screening -eq 'Jev'){Set-WallpaperCredentials}
- New-Item -ItemType Directory -Path $target -Force|Out-Null
+ New-Item -ItemType Directory -Path (Join-Path $target 'fonts') -Force|Out-Null
  foreach($name in $payload){$source=Join-Path $PSScriptRoot $name;$destination=Join-Path $target $name;if([IO.Path]::GetFullPath($source) -ne $destination){Copy-Item -LiteralPath $source -Destination $destination -Force}}
  $null=New-WallpaperSettingsLauncher $target (New-WallpaperIcon $target)
  $manifest=@{product='MotivationWallpaper';version='0.1.7';directory=$target;shortcuts=$shortcuts;taskName='';files=@($payload)+@('MotivationWallpaperSettings.exe','MotivationWallpaper.ico')}

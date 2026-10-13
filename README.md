@@ -98,7 +98,7 @@ Commons backgrounds come from 37 manually reviewed CC0 nature photos. Runtime me
 
 The collection avoids the last 30 successful background IDs. If all suitable photos were used recently, metadata is incomplete, or Commons fails, the tool generates a fresh background locally. Each Commons request has one attempt with a 10-second timeout. Generated backgrounds use theme-based gradients, soft light, and subtle landscape shapes, with no image API calls. The Generated background setting, or `-BackgroundSource Generated` for one run, bypasses Commons entirely; Jev is used only when Jev screening is selected.
 
-The same quote and background appear on every monitor, cropped and typeset at each monitor's native resolution. Segoe UI, Bahnschrift, and Georgia are selected by theme with a Segoe UI fallback. Dark overlays, minimum font sizes, and left-side icon space support readability.
+The same quote and background appear on every monitor, cropped and typeset at each monitor's native resolution. Fonts follow the theme and the quote: Calm uses Dancing Script, Grounded uses Caveat, and Bold uses Bebas Neue. Long quotes switch to a readable companion (Cormorant Garamond, Lora, or Oswald) unless they contain one of the theme's mood words. The author line uses a matching serif or sans. If the bundled fonts are missing, Segoe UI, Bahnschrift, and Georgia are used as before. Dark overlays, minimum font sizes, and left-side icon space support readability.
 
 Service failures or exhausted quality checks preserve the current wallpaper. Applying wallpapers uses rollback on failure. Concurrent runs are excluded with a file lock.
 
@@ -137,7 +137,7 @@ CI runs offline tests in Windows PowerShell 5.1. Interactive COM and Task Schedu
 
 Inspirational quotes provided by [ZenQuotes API](https://zenquotes.io/), with additional quotes from [DummyJSON](https://dummyjson.com/docs/quotes). Photos come from [Wikimedia Commons](https://commons.wikimedia.org/). Photo credits and source/CC0 links accompany Commons previews. Optional evaluation uses [TypeSafe/Jev](https://typesafe.ai/).
 
-Code: [MIT](LICENSE), copyright 2026 rafeehcp. No third-party photos, downloaded quote collections, API credentials, or fonts are bundled.
+Code: [MIT](LICENSE), copyright 2026 rafeehcp. No third-party photos, downloaded quote collections, or API credentials are bundled. The `fonts` folder bundles Bebas Neue, Caveat, Cormorant Garamond, Dancing Script, Lora, and Oswald from Google Fonts under the SIL Open Font License; each family's license is next to its files.
 
 Tested locally with Windows PowerShell 5.1 and three monitors, including a fresh standard-user installation, credential dialogs, actual scheduled execution, sign-in catch-up, restore, and uninstall. Broader community validation remains welcome.
 
