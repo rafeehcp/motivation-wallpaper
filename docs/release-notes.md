@@ -1,4 +1,4 @@
-﻿# Unreleased
+﻿# v0.1.8
 
 - Wallpapers use bundled Google Fonts chosen by theme and quote. Short quotes, and quotes with the theme's mood words, get an expressive face: Dancing Script (Calm), Caveat (Grounded), or Bebas Neue (Bold). Longer quotes get a readable companion: Cormorant Garamond, Lora, or Oswald. The author line uses a matching font. `details.json` records the font each monitor used.
 - The fonts install into a `fonts` folder and are removed on uninstall. All are under the SIL Open Font License, included alongside them.
